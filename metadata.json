@@ -1,0 +1,5 @@
+{
+  "name": "RehabFlow - Pro Exercise Tracker",
+  "description": "A professional-grade rehabilitation exercise tracker designed for physical therapy patients to log movements, sets, and progress with easy export to Google Sheets.",
+  "requestFramePermissions": []
+}
