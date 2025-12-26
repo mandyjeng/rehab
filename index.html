@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RehabFlow - 我的復健小本本</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Quicksand', 'Noto Sans TC', sans-serif;
+      background: #fdfbff; /* 非常淡的紫色底 */
+      min-height: 100vh;
+      color: #475569;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 20px 40px -10px rgba(148, 163, 184, 0.15);
+    }
+    .bg-gradient-mesh {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+    .mesh-ball {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+    }
+    @keyframes move {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, -30px) scale(1.1); }
+      100% { transform: translate(0, 0) scale(1); }
+    }
+    .animate-mesh {
+      animation: move 10s ease-in-out infinite;
+    }
+  </style>
+  <script type="module" crossorigin src="/rehab/assets/index-CNuvoVUq.js"></script>
+</head>
+<body>
+  <div class="bg-gradient-mesh">
+    <div class="mesh-ball animate-mesh" style="width: 500px; height: 500px; background: #e0f2fe; top: -10%; left: -5%;"></div>
+    <div class="mesh-ball animate-mesh" style="width: 400px; height: 400px; background: #fdf2f8; bottom: -10%; right: -5%; animation-delay: 2s;"></div>
+    <div class="mesh-ball animate-mesh" style="width: 300px; height: 300px; background: #f0fdf4; top: 40%; right: 10%; animation-delay: 5s;"></div>
+  </div>
+
+  <div id="root"></div>
+
+</body>
+</html>
