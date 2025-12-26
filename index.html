@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -44,15 +43,6 @@
       animation: move 10s ease-in-out infinite;
     }
   </style>
-<script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
-  }
-}
-</script>
 </head>
 <body>
   <div class="bg-gradient-mesh">
@@ -60,6 +50,9 @@
     <div class="mesh-ball animate-mesh" style="width: 400px; height: 400px; background: #fdf2f8; bottom: -10%; right: -5%; animation-delay: 2s;"></div>
     <div class="mesh-ball animate-mesh" style="width: 300px; height: 300px; background: #f0fdf4; top: 40%; right: 10%; animation-delay: 5s;"></div>
   </div>
+
   <div id="root"></div>
+
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>
