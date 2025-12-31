@@ -11,10 +11,10 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState<FormData>({
     date: new Date().toISOString().split('T')[0],
-    exerciseId: EXERCISES[0].id,
+    exerciseId: '', // 預設為空，對應「請選擇」
     side: '記錄雙側',
-    sets: 3,
-    weight: '',
+    sets: 1, // 總組數預設填 1
+    weight: '0', // 初始預設填 0
     reps: '10',
     time: '',
     resistance: '',
@@ -51,7 +51,7 @@ const App: React.FC = () => {
   };
 
   const currentExercise = useMemo(() => 
-    EXERCISES.find(e => e.id === formData.exerciseId) || EXERCISES[0]
+    EXERCISES.find(e => e.id === formData.exerciseId) || null
   , [formData.exerciseId]);
 
   // 過濾動作邏輯
@@ -71,17 +71,18 @@ const App: React.FC = () => {
   }, [filteredExercises]);
 
   useEffect(() => {
-    if (!editingId) {
+    if (!editingId && currentExercise) {
       setFormData(prev => ({
         ...prev,
         side: currentExercise.isUnilateral ? '左' : 'N/A' as any,
-        weight: currentExercise.category === BodyPart.LANDMINE ? '20' : '',
+        // 如果是地雷管類別預設 20，其餘 0
+        weight: currentExercise.category === BodyPart.LANDMINE ? '20' : '0',
         reps: currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'STRENGTH' ? '10' : '',
         time: currentExercise.mode === 'TIME_ONLY' ? '30' : (currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '15' : ''),
         resistance: '',
         slope: '',
         speed: '',
-        sets: (currentExercise.mode === 'RELAX' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') ? 1 : 3
+        sets: 1 // 總組數預設為 1
       }));
     }
   }, [currentExercise, editingId]);
@@ -117,13 +118,18 @@ const App: React.FC = () => {
   };
 
   const handleSaveLog = () => {
+    if (!currentExercise) {
+      alert("請先選擇一個復健動作喔！");
+      return;
+    }
+
     setIsProcessing(true);
     let finalValue = "";
     let finalUnit = "";
 
     switch(currentExercise.mode) {
       case 'STRENGTH':
-        finalValue = `${formData.weight !== '' ? formData.weight + 'kg ' : ''}${formData.reps}下`;
+        finalValue = `${formData.weight !== '' ? formData.weight + 'kg ' : '0kg '}${formData.reps}下`;
         finalUnit = '組';
         break;
       case 'REPS_ONLY':
@@ -135,12 +141,12 @@ const App: React.FC = () => {
         finalUnit = '組';
         break;
       case 'CYCLING':
-        finalValue = `阻力${formData.resistance}`;
-        finalUnit = `${formData.time}分鐘`;
+        finalValue = `阻力${formData.resistance || '0'}`;
+        finalUnit = `${formData.time || '0'}分鐘`;
         break;
       case 'TREADMILL':
-        finalValue = `坡度${formData.slope} 速度${formData.speed}`;
-        finalUnit = `${formData.time}分鐘`;
+        finalValue = `坡度${formData.slope || '0'} 速度${formData.speed || '0'}`;
+        finalUnit = `${formData.time || '0'}分鐘`;
         break;
       case 'RELAX':
         finalValue = "已完成";
@@ -184,7 +190,9 @@ const App: React.FC = () => {
     setTimeout(() => {
       setFormData(prev => ({ 
         ...prev, 
-        weight: currentExercise.category === BodyPart.LANDMINE ? '20' : '', 
+        exerciseId: '', // 儲存後重置為「請選擇」
+        weight: '0', 
+        sets: 1,
         notes: '' 
       }));
       setIsProcessing(false);
@@ -348,6 +356,7 @@ const App: React.FC = () => {
                   value={formData.exerciseId} 
                   onChange={e => setFormData({ ...formData, exerciseId: e.target.value })}
                 >
+                  <option value="" disabled className="text-slate-400">── 請選擇 ──</option>
                   {filteredCategories.length > 0 ? (
                     filteredCategories.map(cat => (
                       <optgroup label={cat} key={cat} className="bg-slate-200 text-slate-950 font-black">
@@ -363,7 +372,7 @@ const App: React.FC = () => {
               </section>
               
               <div className={`p-8 md:p-10 rounded-[2.5rem] border-2 space-y-8 transition-colors shadow-inner ${editingId ? 'bg-orange-50 border-orange-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
-                {currentExercise.isUnilateral && (
+                {currentExercise?.isUnilateral && (
                   <section>
                     <label className="text-lg md:text-base font-black text-slate-950 mb-4 block uppercase tracking-widest text-center md:text-left">執行側邊</label>
                     <div className="grid grid-cols-3 gap-4">
@@ -374,28 +383,30 @@ const App: React.FC = () => {
                   </section>
                 )}
                 
-                <div className={`grid ${currentExercise.mode === 'TREADMILL' ? 'grid-cols-3' : 'grid-cols-2'} gap-6`}>
-                  {(currentExercise.mode === 'STRENGTH' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') && (
-                    <section>
-                      <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">{currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : '負重(kg)'}</label>
-                      <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={currentExercise.mode === 'CYCLING' ? formData.resistance : currentExercise.mode === 'TREADMILL' ? formData.slope : formData.weight} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'CYCLING' ? 'resistance' : (currentExercise.mode === 'TREADMILL' ? 'slope' : 'weight')]: e.target.value })} />
-                    </section>
-                  )}
-                  {currentExercise.mode === 'TREADMILL' && (
-                    <section>
-                      <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">速度</label>
-                      <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={formData.speed} onChange={e => setFormData({ ...formData, speed: e.target.value })} />
-                    </section>
-                  )}
-                  {currentExercise.mode !== 'RELAX' && (
-                    <section className={currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'TIME_ONLY' ? 'col-span-2' : ''}>
-                      <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">{currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : '次數'}</label>
-                      <input type="text" inputMode="numeric" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? formData.time : formData.reps} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? 'time' : 'reps']: e.target.value })} />
-                    </section>
-                  )}
-                </div>
+                {currentExercise && (
+                  <div className={`grid ${currentExercise.mode === 'TREADMILL' ? 'grid-cols-3' : 'grid-cols-2'} gap-6`}>
+                    {(currentExercise.mode === 'STRENGTH' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') && (
+                      <section>
+                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">{currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : '負重(kg)'}</label>
+                        <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={currentExercise.mode === 'CYCLING' ? formData.resistance : currentExercise.mode === 'TREADMILL' ? formData.slope : formData.weight} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'CYCLING' ? 'resistance' : (currentExercise.mode === 'TREADMILL' ? 'slope' : 'weight')]: e.target.value })} />
+                      </section>
+                    )}
+                    {currentExercise.mode === 'TREADMILL' && (
+                      <section>
+                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">速度</label>
+                        <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={formData.speed} onChange={e => setFormData({ ...formData, speed: e.target.value })} />
+                      </section>
+                    )}
+                    {currentExercise.mode !== 'RELAX' && (
+                      <section className={currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'TIME_ONLY' ? 'col-span-2' : ''}>
+                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">{currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : '次數'}</label>
+                        <input type="text" inputMode="numeric" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? formData.time : formData.reps} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? 'time' : 'reps']: e.target.value })} />
+                      </section>
+                    )}
+                  </div>
+                )}
 
-                {currentExercise.mode !== 'RELAX' && currentExercise.mode !== 'CYCLING' && currentExercise.mode !== 'TREADMILL' && (
+                {currentExercise && currentExercise.mode !== 'RELAX' && currentExercise.mode !== 'CYCLING' && currentExercise.mode !== 'TREADMILL' && (
                   <section>
                     <label className="text-lg md:text-base font-black text-slate-950 mb-4 block text-center uppercase tracking-widest">總組數</label>
                     <div className="flex items-center justify-center space-x-12">
@@ -404,6 +415,12 @@ const App: React.FC = () => {
                       <button type="button" onClick={() => setFormData({...formData, sets: formData.sets + 1})} className="w-16 h-16 bg-white rounded-2xl border-4 border-slate-100 text-slate-950 font-black text-3xl shadow-md">+</button>
                     </div>
                   </section>
+                )}
+                
+                {!currentExercise && (
+                  <div className="py-12 text-center text-slate-400 font-bold italic">
+                    請先從上方清單選擇動作項目...
+                  </div>
                 )}
               </div>
 
