@@ -3,7 +3,7 @@ import { BodyPart, ExerciseDefinition } from './types';
 
 export const EXERCISES: ExerciseDefinition[] = [
   // 誠星動作
-  { id: 'ss1', name: '單腳起跳雙腳落地', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
+    { id: 'ss1', name: '單腳起跳雙腳落地', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss2', name: '脛骨內轉', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'REPS_ONLY' },
   { id: 'ss3', name: '後腳抬高蹲膝蓋前延伸', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss4', name: '彈力繩帶綁腿，墊高單腳臀橋', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'REPS_ONLY' },
@@ -46,7 +46,8 @@ export const EXERCISES: ExerciseDefinition[] = [
   { id: 'ot4', name: '雙腳提踵', category: BodyPart.OTHER_GYM, isUnilateral: false, mode: 'STRENGTH' },
   { id: 'ot5', name: '單腳提踵', category: BodyPart.OTHER_GYM, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ot6', name: '坐式腳踏車', category: BodyPart.OTHER_GYM, isUnilateral: false, mode: 'CYCLING' },
-  { id: 'ot7', name: '跑步機', category: BodyPart.OTHER_GYM, isUnilateral: false, mode: 'TREADMILL' }
+  { id: 'ot7', name: '跑步機', category: BodyPart.OTHER_GYM, isUnilateral: false, mode: 'TREADMILL' },
+  { id: 'ot8', name: '單腿硬舉', category: BodyPart.OTHER_GYM, isUnilateral: true, mode: 'STRENGTH' }
 ];
 
 export const CATEGORIES = Object.values(BodyPart);
