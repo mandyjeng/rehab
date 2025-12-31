@@ -291,9 +291,9 @@ const App: React.FC = () => {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <header className="py-4 md:py-12 text-center w-full transition-all flex flex-col items-center">
-        <div className="inline-block p-2 md:p-8 rounded-[2rem] md:rounded-[4rem] bg-white shadow-lg mb-2 md:mb-8 border-2 md:border-4 border-indigo-700 relative overflow-hidden group">
-          <svg className="w-10 h-10 md:w-32 md:h-32 relative z-10" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <header className="py-6 md:py-12 text-center w-full transition-all flex flex-col items-center">
+        <div className="inline-block p-3 md:p-8 rounded-[2rem] md:rounded-[4rem] bg-white shadow-lg mb-4 md:mb-8 border-2 md:border-4 border-indigo-700 relative overflow-hidden group">
+          <svg className="w-12 h-12 md:w-32 md:h-32 relative z-10" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="20" cy="20" r="15" fill="#f5f3ff" opacity="0.8" />
             <path d="M42 51 Q50 48 58 51 L62 76 Q50 82 38 76 Z" fill="#6366f1" />
             <path d="M58 55 L75 22" stroke="#ffdbca" strokeWidth="6" strokeLinecap="round" />
@@ -302,50 +302,50 @@ const App: React.FC = () => {
             <rect x="54" y="75" width="8" height="12" rx="2" fill="#1e1b4b" transform="rotate(10 54 75)" />
           </svg>
         </div>
-        <h1 className="text-2xl md:text-5xl font-black text-slate-950 tracking-tight leading-tight">
+        <h1 className="text-3xl md:text-5xl font-black text-slate-950 tracking-tight leading-tight">
           RehabFlow <span className="text-indigo-700">Smart</span>
         </h1>
-        <p className="mt-1 text-slate-900 font-black tracking-widest text-[10px] md:text-sm uppercase">mm復健日記</p>
+        <p className="mt-1 text-slate-900 font-black tracking-widest text-xs md:text-sm uppercase">mm復健日記</p>
       </header>
 
-      <div className="sticky top-2 z-50 bg-white/90 backdrop-blur-lg p-1 rounded-full shadow-2xl border border-indigo-100 mb-6 flex w-full max-w-xs mx-auto md:hidden ring-2 ring-indigo-50">
-        <button onClick={() => { setActiveTab('form'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-2.5 rounded-full font-black text-xs transition-all ${activeTab === 'form' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-500'}`}>⚡ 紀錄動作</button>
-        <button onClick={() => { setActiveTab('history'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-2.5 rounded-full font-black text-xs transition-all ${activeTab === 'history' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-500'}`}>📅 歷史進度</button>
+      <div className="sticky top-2 z-50 bg-white/95 backdrop-blur-lg p-1.5 rounded-full shadow-2xl border border-indigo-100 mb-8 flex w-full max-w-xs mx-auto md:hidden ring-2 ring-indigo-50">
+        <button onClick={() => { setActiveTab('form'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-3 rounded-full font-black text-sm transition-all ${activeTab === 'form' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-600'}`}>⚡ 紀錄動作</button>
+        <button onClick={() => { setActiveTab('history'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-3 rounded-full font-black text-sm transition-all ${activeTab === 'history' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-600'}`}>📅 歷史進度</button>
       </div>
 
-      <div className="flex flex-col gap-6 md:gap-10 w-full max-w-4xl">
-        <div className={`${activeTab === 'form' ? 'block' : 'hidden md:block'} space-y-6 md:space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-          <div className="glass-card rounded-[2rem] md:rounded-[3rem] p-5 md:p-8 border-b-4 md:border-b-8 border-emerald-600 shadow-xl shadow-emerald-100/40">
-            <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
+      <div className="flex flex-col gap-8 md:gap-10 w-full max-w-4xl">
+        <div className={`${activeTab === 'form' ? 'block' : 'hidden md:block'} space-y-8 md:space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+          <div className="glass-card rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 border-b-4 md:border-b-8 border-emerald-600 shadow-xl shadow-emerald-100/40">
+            <div className="flex flex-col md:flex-row gap-5 md:gap-6 items-start">
               <div className="w-full md:w-1/3">
-                <label className="text-[10px] md:text-xs font-black text-emerald-800 mb-1.5 block uppercase tracking-widest">📅 選擇日期</label>
-                <input type="date" className="w-full px-4 py-3 rounded-xl md:rounded-3xl bg-white border-2 border-emerald-50 focus:border-emerald-500 outline-none font-black text-slate-950 shadow-sm text-sm md:text-base" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                <label className="text-xs md:text-xs font-black text-emerald-900 mb-2 block uppercase tracking-widest">📅 選擇日期</label>
+                <input type="date" className="w-full px-5 py-4 rounded-xl md:rounded-3xl bg-white border-2 border-emerald-100 focus:border-emerald-500 outline-none font-black text-slate-950 shadow-sm text-base md:text-base" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
               </div>
               <div className="w-full md:w-2/3">
-                <label className="text-[10px] md:text-xs font-black text-emerald-800 mb-1.5 block uppercase tracking-widest">🧠 今日身體狀況</label>
-                <textarea placeholder="今天的體感..." className="w-full px-4 py-3 rounded-xl md:rounded-3xl bg-white border-2 border-emerald-50 focus:border-emerald-500 outline-none font-bold text-slate-800 shadow-sm h-14 md:h-20 resize-none text-sm md:text-base" value={currentDailyStatus} onChange={e => handleStatusChange(e.target.value)} />
+                <label className="text-xs md:text-xs font-black text-emerald-900 mb-2 block uppercase tracking-widest">🧠 今日身體狀況</label>
+                <textarea placeholder="今天的體感..." className="w-full px-5 py-4 rounded-xl md:rounded-3xl bg-white border-2 border-emerald-100 focus:border-emerald-500 outline-none font-bold text-slate-800 shadow-sm h-16 md:h-20 resize-none text-base md:text-base leading-relaxed" value={currentDailyStatus} onChange={e => handleStatusChange(e.target.value)} />
               </div>
             </div>
           </div>
 
-          <div className={`glass-card rounded-[2rem] md:rounded-[3rem] p-5 md:p-10 border-b-4 md:border-b-8 transition-all duration-300 ${editingId ? 'border-orange-500 shadow-orange-100 ring-4 ring-orange-50' : 'border-indigo-800 shadow-indigo-300/40'}`}>
-            <h2 className="text-lg md:text-2xl font-black text-slate-950 mb-5 md:mb-8 flex items-center">
-              <span className={`w-8 h-8 md:w-12 md:h-12 flex items-center justify-center rounded-lg md:rounded-2xl mr-3 md:mr-4 text-xs md:text-xl shadow-lg text-white transition-colors ${editingId ? 'bg-orange-500' : 'bg-indigo-800'}`}>{editingId ? '✏️' : '⚡'}</span>
+          <div className={`glass-card rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 border-b-4 md:border-b-8 transition-all duration-300 ${editingId ? 'border-orange-500 shadow-orange-100 ring-4 ring-orange-50' : 'border-indigo-800 shadow-indigo-300/40'}`}>
+            <h2 className="text-xl md:text-2xl font-black text-slate-950 mb-6 md:mb-8 flex items-center">
+              <span className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-xl md:rounded-2xl mr-4 md:mr-4 text-base md:text-xl shadow-lg text-white transition-colors ${editingId ? 'bg-orange-500' : 'bg-indigo-800'}`}>{editingId ? '✏️' : '⚡'}</span>
               {editingId ? '修改動作內容' : `新增紀錄`}
             </h2>
-            <div className="space-y-5 md:space-y-6">
-              <section className="space-y-3">
+            <div className="space-y-6 md:space-y-6">
+              <section className="space-y-4">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
                   <div className="flex-1">
-                    <label className="text-[10px] md:text-sm font-black text-slate-950 mb-1.5 block tracking-tighter uppercase tracking-widest">🎯 選擇復健動作</label>
+                    <label className="text-xs md:text-sm font-black text-slate-950 mb-2 block tracking-tighter uppercase tracking-widest">🎯 選擇復健動作</label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </div>
                       <input 
                         type="text" 
                         placeholder="搜尋動作關鍵字..." 
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-indigo-500 focus:bg-white outline-none font-bold text-slate-700 shadow-sm text-xs md:text-sm transition-all"
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 focus:bg-white outline-none font-bold text-slate-800 shadow-sm text-sm md:text-base transition-all"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                       />
@@ -354,7 +354,7 @@ const App: React.FC = () => {
                 </div>
                 
                 <select 
-                  className="w-full px-4 py-3 md:py-4 rounded-xl md:rounded-3xl bg-white border-2 md:border-4 border-slate-50 focus:border-indigo-700 outline-none font-black text-slate-950 shadow-sm text-sm md:text-base" 
+                  className="w-full px-5 py-4 md:py-4 rounded-xl md:rounded-3xl bg-white border-2 md:border-4 border-slate-100 focus:border-indigo-700 outline-none font-black text-slate-950 shadow-sm text-base md:text-base" 
                   value={formData.exerciseId} 
                   onChange={e => setFormData({ ...formData, exerciseId: e.target.value })}
                 >
@@ -372,111 +372,111 @@ const App: React.FC = () => {
                 </select>
               </section>
               
-              <div className={`p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border-2 space-y-4 md:space-y-6 transition-colors ${editingId ? 'bg-orange-50 border-orange-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
+              <div className={`p-5 md:p-6 rounded-[1.8rem] md:rounded-[2.5rem] border-2 space-y-6 md:space-y-6 transition-colors ${editingId ? 'bg-orange-50 border-orange-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
                 {currentExercise.isUnilateral && (
                   <section>
-                    <label className="text-[9px] md:text-xs font-black text-slate-950 mb-2 block uppercase tracking-widest text-center md:text-left opacity-70">執行側邊</label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <label className="text-xs md:text-xs font-black text-slate-950 mb-3 block uppercase tracking-widest text-center md:text-left">執行側邊</label>
+                    <div className="grid grid-cols-3 gap-3">
                       {['左', '右', '記錄雙側'].map(s => (
-                        <button key={s} type="button" onClick={() => setFormData({ ...formData, side: s as any })} className={`py-2 md:py-3 rounded-lg md:rounded-2xl font-black text-[10px] md:text-sm transition-all shadow-sm ${formData.side === s ? (editingId ? 'bg-orange-500 text-white' : 'bg-indigo-700 text-white') : 'bg-white text-slate-700 border border-slate-100 hover:bg-slate-50'}`}>{s}</button>
+                        <button key={s} type="button" onClick={() => setFormData({ ...formData, side: s as any })} className={`py-3 md:py-3 rounded-xl md:rounded-2xl font-black text-xs md:text-sm transition-all shadow-sm ${formData.side === s ? (editingId ? 'bg-orange-500 text-white' : 'bg-indigo-700 text-white') : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>{s}</button>
                       ))}
                     </div>
                   </section>
                 )}
                 
-                <div className={`grid ${currentExercise.mode === 'TREADMILL' ? 'grid-cols-3' : 'grid-cols-2'} gap-3 md:gap-4`}>
+                <div className={`grid ${currentExercise.mode === 'TREADMILL' ? 'grid-cols-3' : 'grid-cols-2'} gap-4 md:gap-4`}>
                   {(currentExercise.mode === 'STRENGTH' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') && (
                     <section>
-                      <label className="text-[9px] md:text-xs font-black text-slate-950 mb-1.5 block text-center md:text-left opacity-70 uppercase tracking-widest">{currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : '負重(kg)'}</label>
-                      <input type="text" inputMode="decimal" className="w-full px-2 py-3 rounded-lg md:rounded-2xl bg-white border-2 border-indigo-100 focus:border-indigo-700 outline-none font-black text-slate-950 text-base md:text-xl text-center shadow-inner" value={currentExercise.mode === 'CYCLING' ? formData.resistance : currentExercise.mode === 'TREADMILL' ? formData.slope : formData.weight} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'CYCLING' ? 'resistance' : (currentExercise.mode === 'TREADMILL' ? 'slope' : 'weight')]: e.target.value })} />
+                      <label className="text-xs md:text-xs font-black text-slate-950 mb-2 block text-center md:text-left uppercase tracking-widest">{currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : '負重(kg)'}</label>
+                      <input type="text" inputMode="decimal" className="w-full px-3 py-4 rounded-xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-xl md:text-xl text-center shadow-inner" value={currentExercise.mode === 'CYCLING' ? formData.resistance : currentExercise.mode === 'TREADMILL' ? formData.slope : formData.weight} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'CYCLING' ? 'resistance' : (currentExercise.mode === 'TREADMILL' ? 'slope' : 'weight')]: e.target.value })} />
                     </section>
                   )}
                   {currentExercise.mode === 'TREADMILL' && (
                     <section>
-                      <label className="text-[9px] md:text-xs font-black text-slate-950 mb-1.5 block text-center md:text-left opacity-70 uppercase tracking-widest">速度</label>
-                      <input type="text" inputMode="decimal" className="w-full px-2 py-3 rounded-lg md:rounded-2xl bg-white border-2 border-indigo-100 focus:border-indigo-700 outline-none font-black text-slate-950 text-base md:text-xl text-center shadow-inner" value={formData.speed} onChange={e => setFormData({ ...formData, speed: e.target.value })} />
+                      <label className="text-xs md:text-xs font-black text-slate-950 mb-2 block text-center md:text-left uppercase tracking-widest">速度</label>
+                      <input type="text" inputMode="decimal" className="w-full px-3 py-4 rounded-xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-xl md:text-xl text-center shadow-inner" value={formData.speed} onChange={e => setFormData({ ...formData, speed: e.target.value })} />
                     </section>
                   )}
                   {currentExercise.mode !== 'RELAX' && (
                     <section className={currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'TIME_ONLY' ? 'col-span-2' : ''}>
-                      <label className="text-[9px] md:text-xs font-black text-slate-950 mb-1.5 block text-center md:text-left opacity-70 uppercase tracking-widest">{currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : '次數'}</label>
-                      <input type="text" inputMode="numeric" className="w-full px-2 py-3 rounded-lg md:rounded-2xl bg-white border-2 border-indigo-100 focus:border-indigo-700 outline-none font-black text-slate-950 text-base md:text-xl text-center shadow-inner" value={currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? formData.time : formData.reps} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? 'time' : 'reps']: e.target.value })} />
+                      <label className="text-xs md:text-xs font-black text-slate-950 mb-2 block text-center md:text-left uppercase tracking-widest">{currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : '次數'}</label>
+                      <input type="text" inputMode="numeric" className="w-full px-3 py-4 rounded-xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-xl md:text-xl text-center shadow-inner" value={currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? formData.time : formData.reps} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? 'time' : 'reps']: e.target.value })} />
                     </section>
                   )}
                 </div>
 
                 {currentExercise.mode !== 'RELAX' && currentExercise.mode !== 'CYCLING' && currentExercise.mode !== 'TREADMILL' && (
                   <section>
-                    <label className="text-[9px] md:text-xs font-black text-slate-950 mb-2 block text-center uppercase tracking-widest opacity-70">總組數</label>
-                    <div className="flex items-center justify-center space-x-6 md:space-x-8">
-                      <button type="button" onClick={() => setFormData({...formData, sets: Math.max(1, formData.sets - 1)})} className="w-10 h-10 md:w-14 md:h-14 bg-white rounded-lg md:rounded-2xl border-2 border-slate-50 text-slate-950 font-black text-base md:text-xl shadow-sm">-</button>
-                      <span className="text-2xl md:text-4xl font-black text-indigo-800 w-8 text-center">{formData.sets}</span>
-                      <button type="button" onClick={() => setFormData({...formData, sets: formData.sets + 1})} className="w-10 h-10 md:w-14 md:h-14 bg-white rounded-lg md:rounded-2xl border-2 border-slate-50 text-slate-950 font-black text-base md:text-xl shadow-sm">+</button>
+                    <label className="text-xs md:text-xs font-black text-slate-950 mb-3 block text-center uppercase tracking-widest">總組數</label>
+                    <div className="flex items-center justify-center space-x-8 md:space-x-8">
+                      <button type="button" onClick={() => setFormData({...formData, sets: Math.max(1, formData.sets - 1)})} className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl border-2 border-slate-200 text-slate-950 font-black text-xl shadow-sm">-</button>
+                      <span className="text-3xl md:text-4xl font-black text-indigo-800 w-10 text-center">{formData.sets}</span>
+                      <button type="button" onClick={() => setFormData({...formData, sets: formData.sets + 1})} className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl border-2 border-slate-200 text-slate-950 font-black text-xl shadow-sm">+</button>
                     </div>
                   </section>
                 )}
               </div>
 
               <section>
-                <label className="text-[10px] md:text-sm font-black text-slate-950 mb-1.5 block uppercase tracking-widest opacity-70">📔 備註</label>
-                <textarea placeholder="今日體感..." className="w-full px-4 py-3 rounded-xl md:rounded-3xl bg-white border-2 border-slate-50 focus:border-indigo-700 outline-none h-14 md:h-20 font-bold text-slate-950 shadow-inner resize-none text-sm md:text-base" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
+                <label className="text-xs md:text-sm font-black text-slate-950 mb-2 block uppercase tracking-widest">📔 動作備註</label>
+                <textarea placeholder="今日體感..." className="w-full px-5 py-4 rounded-xl md:rounded-3xl bg-white border-2 border-slate-100 focus:border-indigo-700 outline-none h-18 md:h-20 font-bold text-slate-950 shadow-inner resize-none text-base md:text-base leading-relaxed" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
               </section>
 
-              <button type="button" onClick={handleSaveLog} disabled={isProcessing} className={`w-full py-4 md:py-6 rounded-2xl md:rounded-[2.5rem] font-black text-white shadow-xl md:shadow-2xl transition-all transform active:scale-95 text-base md:text-2xl ${isProcessing ? 'bg-slate-400' : editingId ? 'bg-gradient-to-br from-orange-500 to-rose-600' : 'bg-gradient-to-br from-indigo-800 via-indigo-900 to-slate-950'}`}>
+              <button type="button" onClick={handleSaveLog} disabled={isProcessing} className={`w-full py-5 md:py-6 rounded-2xl md:rounded-[2.5rem] font-black text-white shadow-xl md:shadow-2xl transition-all transform active:scale-95 text-lg md:text-2xl ${isProcessing ? 'bg-slate-400' : editingId ? 'bg-gradient-to-br from-orange-500 to-rose-600' : 'bg-gradient-to-br from-indigo-800 via-indigo-900 to-slate-950'}`}>
                 {isProcessing ? '處理中...' : editingId ? '💾 儲存修改' : '🎯 確定新增紀錄'}
               </button>
             </div>
           </div>
         </div>
 
-        <div className={`${activeTab === 'history' ? 'block' : 'hidden md:block'} w-full space-y-6 md:space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-          <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-3 px-1 md:px-4">
-            <h2 className="text-xl md:text-3xl font-black text-slate-950">歷史復健日誌</h2>
-            <div className="flex gap-2 w-full md:w-auto">
-              <button type="button" onClick={handleDeleteAll} className="flex-1 md:flex-none px-3 md:px-6 py-2.5 rounded-xl font-black bg-white text-rose-600 border border-rose-100 text-[10px] md:text-sm shadow-sm">🗑️ 清空</button>
-              <button type="button" onClick={handleCopyToClipboard} className={`flex-[2] md:flex-none px-5 md:px-8 py-2.5 rounded-xl font-black shadow-lg text-[10px] md:text-lg transition-all ${logs.length === 0 ? 'bg-slate-100 text-slate-400' : copied ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-white'}`}>{copied ? '✅ 成功' : '📋 複製日誌'}</button>
+        <div className={`${activeTab === 'history' ? 'block' : 'hidden md:block'} w-full space-y-8 md:space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+          <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-4 px-1 md:px-4">
+            <h2 className="text-2xl md:text-3xl font-black text-slate-950">歷史復健日誌</h2>
+            <div className="flex gap-3 w-full md:w-auto">
+              <button type="button" onClick={handleDeleteAll} className="flex-1 md:flex-none px-4 md:px-6 py-3 rounded-xl font-black bg-white text-rose-600 border border-rose-100 text-xs md:text-sm shadow-sm">🗑️ 清空</button>
+              <button type="button" onClick={handleCopyToClipboard} className={`flex-[2] md:flex-none px-6 md:px-8 py-3 rounded-xl font-black shadow-lg text-sm md:text-lg transition-all ${logs.length === 0 ? 'bg-slate-100 text-slate-400' : copied ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-white'}`}>{copied ? '✅ 成功' : '📋 複製日誌'}</button>
             </div>
           </div>
 
-          <div className="space-y-6 md:space-y-10">
+          <div className="space-y-8 md:space-y-10">
             {groupedLogs.map(group => (
-              <div key={group.date} className="glass-card rounded-[1.5rem] md:rounded-[4rem] overflow-hidden border-2 border-white shadow-lg bg-white/60">
-                <div className="bg-slate-950 p-4 md:p-8 text-white border-b-2 border-indigo-700">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 md:w-14 md:h-14 bg-indigo-700 rounded-lg md:rounded-2xl flex items-center justify-center text-sm md:text-2xl">📅</div>
+              <div key={group.date} className="glass-card rounded-[2rem] md:rounded-[4rem] overflow-hidden border-2 border-white shadow-lg bg-white/60">
+                <div className="bg-slate-950 p-5 md:p-8 text-white border-b-2 border-indigo-700">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-11 h-11 md:w-14 md:h-14 bg-indigo-700 rounded-xl md:rounded-2xl flex items-center justify-center text-lg md:text-2xl">📅</div>
                       <div>
-                        <span className="text-lg md:text-3xl font-black tracking-tighter block">{group.date}</span>
-                        <span className="px-1.5 py-0.5 bg-white/20 rounded text-[8px] font-bold uppercase tracking-widest">{group.logs.length} 項目</span>
+                        <span className="text-xl md:text-3xl font-black tracking-tighter block">{group.date}</span>
+                        <span className="px-2 py-0.5 bg-white/20 rounded text-xs font-bold uppercase tracking-widest">{group.logs.length} 項目</span>
                       </div>
                     </div>
-                    <div className="flex-1 p-2.5 md:p-5 bg-white/5 rounded-xl md:rounded-[2rem] border border-white/10 backdrop-blur-md">
-                      <p className="text-xs md:text-lg font-bold text-emerald-400 leading-tight">{group.status || '未填寫狀況...'}</p>
+                    <div className="flex-1 p-3.5 md:p-5 bg-white/5 rounded-2xl md:rounded-[2rem] border border-white/10 backdrop-blur-md">
+                      <p className="text-sm md:text-lg font-bold text-emerald-400 leading-relaxed">{group.status || '未填寫狀況...'}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="md:block">
-                   <div className="block md:hidden divide-y divide-indigo-50">
+                   <div className="block md:hidden divide-y-2 divide-indigo-50/50">
                       {group.logs.map(log => (
-                        <div key={log.id} className="p-4 flex flex-col gap-2 hover:bg-white transition-colors relative">
+                        <div key={log.id} className="p-5 flex flex-col gap-4 hover:bg-white transition-colors relative">
                            <div className="flex justify-between items-start">
                               <div className="flex-1">
-                                <h3 className="text-base font-black text-slate-950 leading-tight">{log.exerciseName}</h3>
-                                <div className="flex gap-1.5 mt-1 items-center flex-wrap">
-                                   <span className="text-[8px] text-indigo-600 font-bold bg-indigo-50 px-1 py-0.5 rounded border border-indigo-100/50">{log.category}</span>
-                                   {log.side !== 'N/A' && <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black text-white ${log.side === '左' ? 'bg-orange-600' : log.side === '右' ? 'bg-indigo-700' : 'bg-emerald-600'}`}>{log.side}</span>}
+                                <h3 className="text-lg font-black text-slate-950 leading-tight">{log.exerciseName}</h3>
+                                <div className="flex gap-2 mt-2 items-center flex-wrap">
+                                   <span className="text-xs text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/50">{log.category}</span>
+                                   {log.side !== 'N/A' && <span className={`px-2 py-0.5 rounded-full text-xs font-black text-white shadow-sm ${log.side === '左' ? 'bg-orange-600' : log.side === '右' ? 'bg-indigo-700' : 'bg-emerald-600'}`}>{log.side}</span>}
                                 </div>
                               </div>
-                              <div className="text-right ml-2">
-                                 <span className="text-lg font-black text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-lg block border border-indigo-100">{log.value}</span>
-                                 <span className="block text-[9px] font-black text-slate-400 mt-0.5 uppercase tracking-tighter">{log.sets > 1 ? `× ${log.sets} 組` : log.unit}</span>
+                              <div className="text-right ml-3">
+                                 <span className="text-xl font-black text-indigo-950 bg-indigo-100/50 px-3 py-1 rounded-xl block border border-indigo-200 shadow-sm">{log.value}</span>
+                                 <span className="block text-xs font-black text-slate-500 mt-1.5 uppercase tracking-tighter">{log.sets > 1 ? `× ${log.sets} 組` : log.unit}</span>
                               </div>
                            </div>
-                           {log.notes && <p className="text-[10px] text-slate-500 font-medium italic bg-slate-50 p-1.5 rounded-md border border-slate-100">“{log.notes}”</p>}
-                           <div className="flex justify-end gap-3 pt-2 border-t border-slate-50 mt-1">
-                              <button onClick={() => startEditing(log)} className="text-[10px] font-black text-indigo-600 px-2 py-1">✏️ 修改</button>
-                              <button onClick={() => { if(window.confirm('確定刪除？')) setLogs(prev => prev.filter(l => l.id !== log.id)); }} className="text-[10px] font-black text-rose-500 px-2 py-1">🗑️ 刪除</button>
+                           {log.notes && <p className="text-sm text-slate-600 font-medium italic bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">“{log.notes}”</p>}
+                           <div className="flex justify-end gap-6 pt-3 border-t border-slate-100 mt-1">
+                              <button onClick={() => startEditing(log)} className="text-sm font-black text-indigo-700 px-3 py-1 flex items-center gap-1">✏️ 修改</button>
+                              <button onClick={() => { if(window.confirm('確定刪除？')) setLogs(prev => prev.filter(l => l.id !== log.id)); }} className="text-sm font-black text-rose-600 px-3 py-1 flex items-center gap-1">🗑️ 刪除</button>
                            </div>
                         </div>
                       ))}
@@ -490,14 +490,14 @@ const App: React.FC = () => {
                             <td className="px-8 py-8 w-1/2">
                               <div className="text-xl font-black text-slate-950">{log.exerciseName}</div>
                               <div className="flex gap-2 mt-2 items-center">
-                                <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{log.category}</span>
-                                {log.side !== 'N/A' && <span className={`px-2 py-0.5 rounded-full text-[10px] font-black text-white ${log.side === '左' ? 'bg-orange-600' : log.side === '右' ? 'bg-indigo-700' : 'bg-emerald-600'}`}>{log.side}</span>}
+                                <span className="text-sm text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{log.category}</span>
+                                {log.side !== 'N/A' && <span className={`px-2 py-0.5 rounded-full text-sm font-black text-white ${log.side === '左' ? 'bg-orange-600' : log.side === '右' ? 'bg-indigo-700' : 'bg-emerald-600'}`}>{log.side}</span>}
                               </div>
-                              {log.notes && <div className="mt-2 text-sm text-slate-500 font-medium italic bg-slate-100/50 p-2 rounded-xl">“{log.notes}”</div>}
+                              {log.notes && <div className="mt-2 text-base text-slate-500 font-medium italic bg-slate-100/50 p-2 rounded-xl">“{log.notes}”</div>}
                             </td>
                             <td className="px-8 py-8 text-center">
                               <span className="text-2xl font-black text-indigo-900 bg-white px-5 py-3 rounded-[1.5rem] border-2 border-indigo-50 inline-block shadow-sm">{log.value}</span>
-                              <span className="block text-[11px] font-black text-slate-400 mt-2 uppercase tracking-widest">{log.sets > 1 ? `× ${log.sets} 組` : log.unit}</span>
+                              <span className="block text-sm font-black text-slate-400 mt-2 uppercase tracking-widest">{log.sets > 1 ? `× ${log.sets} 組` : log.unit}</span>
                             </td>
                             <td className="px-8 py-8 text-right">
                               <div className="flex justify-end gap-2">
