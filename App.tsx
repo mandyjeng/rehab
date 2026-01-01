@@ -9,6 +9,9 @@ const App: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const [formData, setFormData] = useState<FormData>({
     date: new Date().toISOString().split('T')[0],
     exerciseId: '', // 預設為空，對應「請選擇」
@@ -43,6 +46,17 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('rehab_statuses_v16', JSON.stringify(dailyStatuses));
   }, [dailyStatuses]);
+
+  // 點擊外部關閉下拉選單
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const currentDailyStatus = dailyStatuses[formData.date] || '';
 
@@ -126,7 +140,15 @@ const App: React.FC = () => {
   };
 
   const handleSaveLog = () => {
+    // 修正：如果沒有選擇動作
     if (!currentExercise) {
+      // 檢查是否填寫了身體狀況，如果有則提示狀況已更新，並導向歷史紀錄以便確認
+      if (currentDailyStatus.trim()) {
+        alert("今日身體狀況已更新完成！✅");
+        setActiveTab('history');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
       alert("請先選擇一個復健動作喔！");
       return;
     }
@@ -196,8 +218,13 @@ const App: React.FC = () => {
         notes: formData.notes
       };
       setLogs(prev => [newLog, ...prev]);
+      // 新增動作後自動導向歷史頁籤
+      setActiveTab('history');
     }
     
+    // 儲存後捲動至頂部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     setTimeout(() => {
       setFormData(prev => ({ 
         ...prev, 
@@ -249,8 +276,15 @@ const App: React.FC = () => {
       if (!groups[log.date]) groups[log.date] = [];
       groups[log.date].push(log);
     });
-    return Object.keys(groups).sort((a, b) => b.localeCompare(a)).map(date => ({
-      date, logs: groups[date], status: dailyStatuses[date] || ''
+    
+    // 獲取所有有紀錄或有狀態（且狀態不為空）的日期，確保只記狀態時歷史清單會顯示
+    const statusDates = Object.keys(dailyStatuses).filter(d => dailyStatuses[d].trim() !== '');
+    const allDates = new Set([...Object.keys(groups), ...statusDates]);
+
+    return Array.from(allDates).sort((a, b) => b.localeCompare(a)).map(date => ({
+      date, 
+      logs: groups[date] || [], 
+      status: dailyStatuses[date] || ''
     }));
   }, [logs, dailyStatuses]);
 
@@ -260,12 +294,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCopyToClipboard = () => {
+  // 修正：支援傳入特定日期，或複製全部
+  const handleCopyToClipboard = (targetDate?: string) => {
     if (groupedLogs.length === 0) {
       alert(`目前沒有紀錄可以複製喔！`);
       return;
     }
-    const allText = groupedLogs.map(group => {
+
+    const dataToCopy = targetDate 
+      ? groupedLogs.filter(g => g.date === targetDate)
+      : groupedLogs;
+
+    const allText = dataToCopy.map(group => {
       const title = `📅 【${group.date} 復健日誌】`;
       const status = `🧠 今日狀況：${group.status || '未填寫'}`;
       const tableHeader = "動作項目\t側邊\t負重\t組數\t組數\t備註";
@@ -297,6 +337,7 @@ const App: React.FC = () => {
     navigator.clipboard.writeText(allText).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      if (targetDate) alert(`${targetDate} 的紀錄已複製！`);
     });
   };
 
@@ -352,42 +393,76 @@ const App: React.FC = () => {
             </h2>
             <div className="space-y-8">
               <section className="space-y-4">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
-                  <div className="flex-1">
-                    <label className="text-lg md:text-base font-black text-slate-950 mb-3 block tracking-tighter uppercase tracking-widest">🎯 選擇復健動作</label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg className="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </div>
-                      <input 
-                        type="text" 
-                        placeholder="搜尋關鍵字..." 
-                        className="w-full pl-14 pr-4 py-5 rounded-2xl bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 focus:bg-white outline-none font-bold text-slate-800 shadow-sm text-xl md:text-lg transition-all"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
+                <label className="text-lg md:text-base font-black text-slate-950 mb-3 block tracking-tighter uppercase tracking-widest">🎯 選擇復健動作</label>
                 
-                <select 
-                  className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 focus:border-indigo-700 outline-none font-black text-slate-950 shadow-sm text-xl md:text-lg" 
-                  value={formData.exerciseId} 
-                  onChange={e => setFormData({ ...formData, exerciseId: e.target.value })}
-                >
-                  <option value="" disabled className="text-slate-400">── 請選擇 ──</option>
-                  {filteredCategories.length > 0 ? (
-                    filteredCategories.map(cat => (
-                      <optgroup label={cat} key={cat} className="bg-slate-200 text-slate-950 font-black">
-                        {filteredExercises.filter(ex => ex.category === cat).map(ex => (
-                          <option value={ex.id} key={ex.id} className="bg-white font-bold">{ex.name}</option>
-                        ))}
-                      </optgroup>
-                    ))
-                  ) : (
-                    <option disabled>找不到符合搜尋的動作</option>
+                {/* 整合式搜尋選單 (Searchable Select) */}
+                <div className="relative" ref={dropdownRef}>
+                  <button 
+                    type="button"
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 focus:border-indigo-700 outline-none font-black text-slate-950 shadow-sm text-xl md:text-lg flex justify-between items-center transition-all hover:bg-slate-50"
+                  >
+                    <span className={currentExercise ? "text-slate-950" : "text-slate-400"}>
+                      {currentExercise ? currentExercise.name : '── 請點擊選擇動作 ──'}
+                    </span>
+                    <svg className={`w-6 h-6 text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 9l-7 7-7-7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+
+                  {isDropdownOpen && (
+                    <div className="absolute z-[100] w-full mt-2 bg-white rounded-3xl shadow-2xl border-2 border-indigo-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                      {/* 下拉選單內的搜尋框 */}
+                      <div className="p-4 border-b border-slate-100 sticky top-0 bg-white shadow-sm">
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            placeholder="搜尋動作關鍵字..." 
+                            className="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-indigo-500 focus:bg-white outline-none font-bold text-slate-800"
+                            value={searchTerm}
+                            autoFocus
+                            onChange={e => setSearchTerm(e.target.value)}
+                            onKeyDown={e => e.stopPropagation()}
+                          />
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 動作清單 */}
+                      <div className="max-h-[400px] overflow-y-auto overscroll-contain">
+                        {filteredCategories.length > 0 ? (
+                          filteredCategories.map(cat => (
+                            <div key={cat} className="mb-2">
+                              <div className="px-5 py-3 bg-slate-100/50 text-slate-500 font-black text-sm uppercase tracking-widest sticky top-0 z-10">{cat}</div>
+                              {filteredExercises.filter(ex => ex.category === cat).map(ex => (
+                                <button
+                                  key={ex.id}
+                                  type="button"
+                                  className={`w-full text-left px-8 py-4 hover:bg-indigo-50 transition-colors font-bold text-lg md:text-base border-b border-slate-50 last:border-0 ${formData.exerciseId === ex.id ? 'bg-indigo-50 text-indigo-800 border-l-4 border-l-indigo-600' : 'text-slate-800'}`}
+                                  onClick={() => {
+                                    setFormData({ ...formData, exerciseId: ex.id });
+                                    setIsDropdownOpen(false);
+                                    setSearchTerm('');
+                                  }}
+                                >
+                                  {ex.name}
+                                </button>
+                              ))}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-12 text-center text-slate-400 font-bold italic">
+                            找不到符合的動作項目...
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
-                </select>
+                </div>
               </section>
               
               <div className={`p-8 md:p-10 rounded-[2.5rem] border-2 space-y-8 transition-colors shadow-inner ${editingId ? 'bg-orange-50 border-orange-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
@@ -442,7 +517,7 @@ const App: React.FC = () => {
                 
                 {!currentExercise && (
                   <div className="py-12 text-center text-slate-400 font-bold italic">
-                    請先從上方清單選擇動作項目...
+                    請從上方選單選擇動作項目...
                   </div>
                 )}
               </div>
@@ -465,7 +540,7 @@ const App: React.FC = () => {
             <h2 className="text-4xl font-black text-slate-950">歷史復健日誌</h2>
             <div className="flex gap-4 w-full md:w-auto">
               <button type="button" onClick={handleDeleteAll} className="flex-1 md:flex-none px-6 py-5 rounded-2xl font-black bg-white text-rose-600 border border-rose-100 text-lg shadow-sm">🗑️ 清空</button>
-              <button type="button" onClick={handleCopyToClipboard} className={`flex-[2] md:flex-none px-8 py-5 rounded-2xl font-black shadow-lg text-lg md:text-xl transition-all ${logs.length === 0 ? 'bg-slate-100 text-slate-400' : copied ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-white'}`}>{copied ? '✅ 已複製' : '📋 複製日誌'}</button>
+              <button type="button" onClick={() => handleCopyToClipboard()} className={`flex-[2] md:flex-none px-8 py-5 rounded-2xl font-black shadow-lg text-lg md:text-xl transition-all ${logs.length === 0 ? 'bg-slate-100 text-slate-400' : copied ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-white'}`}>{copied ? '✅ 已複製' : '📋 複製全部日誌'}</button>
             </div>
           </div>
 
@@ -479,7 +554,16 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-5">
                       <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg">📅</div>
                       <div>
-                        <span className="text-3xl md:text-4xl font-black tracking-tighter block text-indigo-950">{group.date}</span>
+                        <div className="flex items-center gap-4">
+                          <span className="text-3xl md:text-4xl font-black tracking-tighter block text-indigo-950">{group.date}</span>
+                          <button 
+                            onClick={() => handleCopyToClipboard(group.date)}
+                            className="p-3 bg-white hover:bg-indigo-100 text-indigo-700 rounded-xl border border-indigo-200 shadow-sm transition-colors active:scale-95"
+                            title="複製此日紀錄"
+                          >
+                            📋 <span className="text-sm font-bold">複製</span>
+                          </button>
+                        </div>
                         <span className="inline-flex px-4 py-1.5 bg-indigo-200 text-indigo-800 rounded-full text-base font-black uppercase tracking-widest border border-indigo-200 mt-2">{group.logs.length} 個動作</span>
                       </div>
                     </div>
@@ -512,7 +596,7 @@ const App: React.FC = () => {
                           
                           {/* 右側數值區 */}
                           <div className="text-right shrink-0">
-                            <span className="text-3xl font-black text-indigo-950 bg-indigo-50 px-4 py-2 rounded-2xl inline-block border-2 border-indigo-100 shadow-sm">
+                            <span className="text-3xl font-black text-indigo-950 bg-indigo-50 px-4 py-2 rounded-2xl inline-block border-2 border-indigo-100 shadow-sm whitespace-nowrap">
                               {log.value}
                             </span>
                             <span className="block text-sm font-black text-slate-500 mt-2 uppercase tracking-widest">
@@ -528,7 +612,7 @@ const App: React.FC = () => {
                           </p>
                         )}
 
-                        {/* 底部按鈕區 - 更加精緻 */}
+                        {/* 底部按鈕區 */}
                         <div className="flex justify-end gap-8 mt-4 pt-2">
                           <button onClick={() => startEditing(log)} className="text-lg font-black text-indigo-700 py-1 flex items-center gap-1 active:opacity-50">
                             ✏️ <span className="underline underline-offset-4">修改</span>
@@ -539,37 +623,48 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                    {group.logs.length === 0 && (
+                      <div className="p-10 text-center text-slate-400 font-bold italic">
+                        當天僅記錄身體狀況，無具體動作項目
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* 桌面端列表 */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left min-w-[800px]">
-                    <tbody className="divide-y-2 divide-indigo-50">
-                      {group.logs.map(log => (
-                        <tr key={log.id} className="hover:bg-indigo-50/40 transition-all">
-                          <td className="px-10 py-10 w-1/2">
-                            <div className="text-3xl font-black text-slate-950">{log.exerciseName}</div>
-                            <div className="flex gap-3 mt-3 items-center">
-                              <span className="text-lg text-indigo-600 font-bold bg-indigo-50 px-3 py-1 rounded-lg">{log.category}</span>
-                              {log.side !== 'N/A' && <span className={`px-3 py-1 rounded-full text-lg font-black text-white ${log.side === '左' ? 'bg-orange-600' : log.side === '右' ? 'bg-indigo-700' : 'bg-emerald-600'}`}>{log.side}</span>}
-                            </div>
-                            {log.notes && <div className="mt-4 text-xl text-slate-500 font-medium italic bg-slate-100/50 p-3 rounded-2xl">“{log.notes}”</div>}
-                          </td>
-                          <td className="px-10 py-10 text-center">
-                            <span className="text-4xl font-black text-indigo-900 bg-white px-7 py-4 rounded-[2rem] border-2 border-indigo-50 inline-block shadow-lg">{log.value}</span>
-                            <span className="block text-lg font-black text-slate-400 mt-3 uppercase tracking-widest">{log.sets > 1 ? `× ${log.sets} 組` : log.unit}</span>
-                          </td>
-                          <td className="px-10 py-10 text-right">
-                            <div className="flex justify-end gap-4">
-                              <button onClick={() => startEditing(log)} className="p-5 bg-white border-2 border-slate-100 rounded-2xl text-indigo-600 shadow-md transition-transform active:scale-90 hover:bg-indigo-50"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                              <button onClick={() => { if(window.confirm('確定刪除？')) setLogs(prev => prev.filter(l => l.id !== log.id)); }} className="p-5 bg-white border-2 border-slate-100 rounded-2xl text-rose-500 shadow-md transition-transform active:scale-90 hover:bg-rose-50"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {group.logs.length > 0 ? (
+                    <table className="w-full text-left min-w-[800px]">
+                      <tbody className="divide-y-2 divide-indigo-50">
+                        {group.logs.map(log => (
+                          <tr key={log.id} className="hover:bg-indigo-50/40 transition-all">
+                            <td className="px-10 py-10 w-1/2">
+                              <div className="text-3xl font-black text-slate-950">{log.exerciseName}</div>
+                              <div className="flex gap-3 mt-3 items-center">
+                                <span className="text-lg text-indigo-600 font-bold bg-indigo-50 px-3 py-1 rounded-lg">{log.category}</span>
+                                {log.side !== 'N/A' && <span className={`px-3 py-1 rounded-full text-lg font-black text-white ${log.side === '左' ? 'bg-orange-600' : log.side === '右' ? 'bg-indigo-700' : 'bg-emerald-600'}`}>{log.side}</span>}
+                              </div>
+                              {log.notes && <div className="mt-4 text-xl text-slate-500 font-medium italic bg-slate-100/50 p-3 rounded-2xl">“{log.notes}”</div>}
+                            </td>
+                            <td className="px-10 py-10 text-center">
+                              <span className="text-4xl font-black text-indigo-900 bg-white px-7 py-4 rounded-[2rem] border-2 border-indigo-50 inline-block shadow-lg whitespace-nowrap">{log.value}</span>
+                              <span className="block text-lg font-black text-slate-400 mt-3 uppercase tracking-widest">{log.sets > 1 ? `× ${log.sets} 組` : log.unit}</span>
+                            </td>
+                            <td className="px-10 py-10 text-right">
+                              <div className="flex justify-end gap-4">
+                                <button onClick={() => startEditing(log)} className="p-5 bg-white border-2 border-slate-100 rounded-2xl text-indigo-600 shadow-md transition-transform active:scale-90 hover:bg-indigo-50"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                                <button onClick={() => { if(window.confirm('確定刪除？')) setLogs(prev => prev.filter(l => l.id !== log.id)); }} className="p-5 bg-white border-2 border-slate-100 rounded-2xl text-rose-500 shadow-md transition-transform active:scale-90 hover:bg-rose-50"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="py-20 text-center text-slate-400 font-bold italic text-2xl">
+                      當天僅記錄身體狀況，無具體動作項目
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
