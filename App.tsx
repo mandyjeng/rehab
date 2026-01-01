@@ -298,17 +298,13 @@ const App: React.FC = () => {
     }
   };
 
-  // 修復：簡化刪除邏輯並確保重新渲染
   const handleDeleteDay = (date: string) => {
     if (window.confirm(`⚠️ 確定要刪除 ${date} 的所有紀錄（包含動作與身體狀況）嗎？`)) {
-      // 1. 刪除該日期的動作紀錄
       setLogs(prev => prev.filter(log => log.date !== date));
-      
-      // 2. 刪除該日期的身體狀況
       setDailyStatuses(prev => {
         const next = { ...prev };
         delete next[date];
-        return next; // 返回新對象觸發重新渲染
+        return { ...next };
       });
     }
   };
@@ -566,39 +562,44 @@ const App: React.FC = () => {
           <div className="space-y-10">
             {groupedLogs.map(group => (
               <div key={group.date} className="glass-card rounded-[3rem] overflow-hidden border-2 border-white shadow-2xl bg-white/80">
-                {/* 日期標頭 */}
+                {/* 日期標頭 (優化排版) */}
                 <div className="bg-indigo-50/50 p-6 md:p-8 border-b-2 border-indigo-100 relative overflow-hidden">
                   <div className="absolute left-0 top-0 bottom-0 w-4 bg-indigo-600"></div>
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-5">
-                      <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg">📅</div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-3xl md:text-4xl font-black tracking-tighter block text-indigo-950">{group.date}</span>
-                          <div className="flex gap-2 ml-2">
-                            <button 
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); handleCopyToClipboard(group.date); }}
-                              className="p-3 bg-white hover:bg-indigo-100 text-indigo-700 rounded-xl border border-indigo-200 shadow-sm transition-colors active:scale-95"
-                              title="複製此日紀錄"
-                            >
-                              📋 <span className="text-sm font-bold">複製</span>
-                            </button>
-                            <button 
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); handleDeleteDay(group.date); }}
-                              className="p-3 bg-white hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200 shadow-sm transition-colors active:scale-95"
-                              title="刪除此日紀錄"
-                            >
-                              🗑️ <span className="text-sm font-bold">刪除</span>
-                            </button>
-                          </div>
+                  <div className="flex flex-col gap-6">
+                    <div className="flex items-center justify-between w-full gap-4">
+                      {/* 日期資訊 */}
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center text-2xl shadow-lg shrink-0">📅</div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-2xl md:text-4xl font-black text-indigo-950 whitespace-nowrap overflow-hidden text-ellipsis">{group.date}</span>
+                          <span className="text-sm font-bold text-indigo-700/60 uppercase tracking-widest">{group.logs.length} 個動作</span>
                         </div>
-                        <span className="inline-flex px-4 py-1.5 bg-indigo-200 text-indigo-800 rounded-full text-base font-black uppercase tracking-widest border border-indigo-200 mt-2">{group.logs.length} 個動作</span>
+                      </div>
+                      
+                      {/* 操作按鈕 (圖示化並防止斷行) */}
+                      <div className="flex gap-2 shrink-0">
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleCopyToClipboard(group.date); }}
+                          className="w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-white hover:bg-indigo-100 text-indigo-700 rounded-xl border border-indigo-200 shadow-sm transition-all active:scale-90"
+                          title="複製此日紀錄"
+                        >
+                          📋
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteDay(group.date); }}
+                          className="w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-white hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200 shadow-sm transition-all active:scale-90"
+                          title="刪除此日紀錄"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </div>
-                    <div className="flex-1 p-5 bg-white border-2 border-indigo-100 rounded-[2rem] shadow-sm">
-                      <p className="text-xl font-bold text-slate-800 leading-relaxed italic text-center md:text-left">
+                    
+                    {/* 今日狀況區塊 */}
+                    <div className="w-full p-4 bg-white/60 border border-indigo-100 rounded-2xl shadow-inner">
+                      <p className="text-lg font-bold text-slate-700 leading-relaxed italic text-center md:text-left">
                         {group.status ? `“${group.status}”` : '未填寫今日狀況...'}
                       </p>
                     </div>
