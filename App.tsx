@@ -72,12 +72,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!editingId && currentExercise) {
+      // 根據特定規則設定次數/場數/趟數的預設值
+      let defaultReps = '10';
+      if (currentExercise.name === '打羽球') {
+        defaultReps = '5';
+      } else if (currentExercise.category === BodyPart.BADMINTON) {
+        defaultReps = '3';
+      }
+
       setFormData(prev => ({
         ...prev,
         side: currentExercise.isUnilateral ? '左' : 'N/A' as any,
         // 如果是地雷管類別預設 20，其餘 0
         weight: currentExercise.category === BodyPart.LANDMINE ? '20' : '0',
-        reps: currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'STRENGTH' ? '10' : '',
+        reps: currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'STRENGTH' ? defaultReps : '',
         time: currentExercise.mode === 'TIME_ONLY' ? '30' : (currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '15' : ''),
         resistance: '',
         slope: '',
@@ -129,11 +137,14 @@ const App: React.FC = () => {
 
     switch(currentExercise.mode) {
       case 'STRENGTH':
-        finalValue = `${formData.weight !== '' ? formData.weight + 'kg ' : '0kg '}${formData.reps}下`;
+        const wUnit = currentExercise.name === '打羽球' ? '分 ' : 'kg ';
+        const rUnit = currentExercise.defaultUnit || '下';
+        finalValue = `${formData.weight !== '' ? formData.weight + wUnit : '0' + wUnit}${formData.reps}${rUnit}`;
         finalUnit = '組';
         break;
       case 'REPS_ONLY':
-        finalValue = `${formData.reps}下`;
+        const unitLabel = currentExercise.defaultUnit || '下';
+        finalValue = `${formData.reps}${unitLabel}`;
         finalUnit = '組';
         break;
       case 'TIME_ONLY':
@@ -204,10 +215,16 @@ const App: React.FC = () => {
     if (!exercise) return;
     let weight = '', reps = '', time = '', resistance = '', slope = '', speed = '';
     if (exercise.mode === 'STRENGTH') {
-      const match = log.value.match(/(\d+(?:\.\d+)?)kg\s+(\d+)下/);
+      const wUnit = exercise.name === '打羽球' ? '分' : 'kg';
+      const rUnit = exercise.defaultUnit || '下';
+      const regex = new RegExp(`(\\d+(?:\\.\\d+)?)${wUnit}\\s+(\\d+)${rUnit}`);
+      const match = log.value.match(regex);
       if (match) { weight = match[1]; reps = match[2]; } 
-      else { reps = log.value.replace('下', ''); }
-    } else if (exercise.mode === 'REPS_ONLY') { reps = log.value.replace('下', ''); }
+      else { reps = log.value.replace(rUnit, ''); }
+    } else if (exercise.mode === 'REPS_ONLY') { 
+      const rUnit = exercise.defaultUnit || '下';
+      reps = log.value.replace(rUnit, ''); 
+    }
     else if (exercise.mode === 'TIME_ONLY') { time = log.value.replace('秒', ''); }
     else if (exercise.mode === 'CYCLING') { resistance = log.value.replace('阻力', ''); time = log.unit.replace('分鐘', ''); }
     else if (exercise.mode === 'TREADMILL') {
@@ -258,10 +275,12 @@ const App: React.FC = () => {
         let loadCol = "-"; let perfCol = "-"; let setsCol = `${l.sets}組`; 
         if (exercise) {
           if (exercise.mode === 'STRENGTH') {
-            const wMatch = l.value.match(/(\d+(?:\.\d+)?)kg/);
-            const rMatch = l.value.match(/(\d+)下/);
-            loadCol = wMatch ? `${wMatch[1]}公斤` : "0公斤";
-            perfCol = rMatch ? `${rMatch[1]}下` : l.value;
+            const wUnit = exercise.name === '打羽球' ? '分' : 'kg';
+            const rUnit = exercise.defaultUnit || '下';
+            const wMatch = l.value.match(new RegExp(`(\\d+(?:\\.\\d+)?)${wUnit}`));
+            const rMatch = l.value.match(new RegExp(`(\\d+)${rUnit}`));
+            loadCol = wMatch ? `${wMatch[1]}${wUnit === '分' ? '分' : '公斤'}` : "0公斤";
+            perfCol = rMatch ? `${rMatch[1]}${rUnit}` : l.value;
           } else if (exercise.mode === 'REPS_ONLY' || exercise.mode === 'TIME_ONLY') {
             perfCol = l.value;
           } else if (exercise.mode === 'CYCLING' || exercise.mode === 'TREADMILL') {
@@ -387,7 +406,9 @@ const App: React.FC = () => {
                   <div className={`grid ${currentExercise.mode === 'TREADMILL' ? 'grid-cols-3' : 'grid-cols-2'} gap-6`}>
                     {(currentExercise.mode === 'STRENGTH' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') && (
                       <section>
-                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">{currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : '負重(kg)'}</label>
+                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">
+                          {currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : (currentExercise.name === '打羽球' ? '跑動自評分' : '負重(kg)')}
+                        </label>
                         <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={currentExercise.mode === 'CYCLING' ? formData.resistance : currentExercise.mode === 'TREADMILL' ? formData.slope : formData.weight} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'CYCLING' ? 'resistance' : (currentExercise.mode === 'TREADMILL' ? 'slope' : 'weight')]: e.target.value })} />
                       </section>
                     )}
@@ -399,7 +420,9 @@ const App: React.FC = () => {
                     )}
                     {currentExercise.mode !== 'RELAX' && (
                       <section className={currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'TIME_ONLY' ? 'col-span-2' : ''}>
-                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">{currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : '次數'}</label>
+                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">
+                          {currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : (currentExercise.defaultUnit || '次數')}
+                        </label>
                         <input type="text" inputMode="numeric" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? formData.time : formData.reps} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? 'time' : 'reps']: e.target.value })} />
                       </section>
                     )}

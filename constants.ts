@@ -39,6 +39,14 @@ export const EXERCISES: ExerciseDefinition[] = [
   { id: 'lm2', name: '地雷管-抗扭側彎', category: BodyPart.LANDMINE, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'lm3', name: '地雷管-單手前舉', category: BodyPart.LANDMINE, isUnilateral: true, mode: 'STRENGTH' },
 
+  // 羽球動作
+  { id: 'bd1', name: '打羽球', category: BodyPart.BADMINTON, isUnilateral: false, mode: 'STRENGTH', defaultUnit: '場' },
+  { id: 'bd2', name: '抬髖前跨步', category: BodyPart.BADMINTON, isUnilateral: false, mode: 'REPS_ONLY', defaultUnit: '趟' },
+  { id: 'bd3', name: '側向單腳進出', category: BodyPart.BADMINTON, isUnilateral: false, mode: 'REPS_ONLY', defaultUnit: '趟' },
+  { id: 'bd4', name: '單腳開合', category: BodyPart.BADMINTON, isUnilateral: false, mode: 'REPS_ONLY', defaultUnit: '趟' },
+  { id: 'bd5', name: '上網步伐', category: BodyPart.BADMINTON, isUnilateral: false, mode: 'REPS_ONLY', defaultUnit: '趟' },
+  { id: 'bd6', name: '後撤步伐', category: BodyPart.BADMINTON, isUnilateral: false, mode: 'REPS_ONLY', defaultUnit: '趟' },
+
   // 其他
   { id: 'ot1', name: 'Leg curl', category: BodyPart.OTHER_GYM, isUnilateral: false, mode: 'STRENGTH' },
   { id: 'ot2', name: 'Leg extension', category: BodyPart.OTHER_GYM, isUnilateral: false, mode: 'STRENGTH' },

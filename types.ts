@@ -4,6 +4,7 @@ export enum BodyPart {
   STARS_MOBILITY = '誠星動作-放鬆 (Mobility)',
   SAMURAI_WORKOUT = '武士動作 (Samurai)',
   LANDMINE = '地雷管 (Landmine)',
+  BADMINTON = '羽球 (Badminton)',
   OTHER_GYM = '其他 (Others)'
 }
 
