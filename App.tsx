@@ -277,8 +277,12 @@ const App: React.FC = () => {
       groups[log.date].push(log);
     });
     
-    // 獲取所有有紀錄或有狀態（且狀態不為空）的日期，確保只記狀態時歷史清單會顯示
-    const statusDates = Object.keys(dailyStatuses).filter(d => dailyStatuses[d].trim() !== '');
+    // 獲取所有有紀錄或有狀態（且狀態不為空）的日期
+    const statusDates = Object.keys(dailyStatuses).filter(d => {
+      const status = dailyStatuses[d];
+      return typeof status === 'string' && status.trim() !== '';
+    });
+    
     const allDates = new Set([...Object.keys(groups), ...statusDates]);
 
     return Array.from(allDates).sort((a, b) => b.localeCompare(a)).map(date => ({
@@ -291,6 +295,21 @@ const App: React.FC = () => {
   const handleDeleteAll = () => {
     if (window.confirm('⚠️ 確定要刪除「所有」歷史紀錄嗎？')) {
       setLogs([]); setDailyStatuses({}); localStorage.clear();
+    }
+  };
+
+  // 修復：簡化刪除邏輯並確保重新渲染
+  const handleDeleteDay = (date: string) => {
+    if (window.confirm(`⚠️ 確定要刪除 ${date} 的所有紀錄（包含動作與身體狀況）嗎？`)) {
+      // 1. 刪除該日期的動作紀錄
+      setLogs(prev => prev.filter(log => log.date !== date));
+      
+      // 2. 刪除該日期的身體狀況
+      setDailyStatuses(prev => {
+        const next = { ...prev };
+        delete next[date];
+        return next; // 返回新對象觸發重新渲染
+      });
     }
   };
 
@@ -554,15 +573,26 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-5">
                       <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg">📅</div>
                       <div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
                           <span className="text-3xl md:text-4xl font-black tracking-tighter block text-indigo-950">{group.date}</span>
-                          <button 
-                            onClick={() => handleCopyToClipboard(group.date)}
-                            className="p-3 bg-white hover:bg-indigo-100 text-indigo-700 rounded-xl border border-indigo-200 shadow-sm transition-colors active:scale-95"
-                            title="複製此日紀錄"
-                          >
-                            📋 <span className="text-sm font-bold">複製</span>
-                          </button>
+                          <div className="flex gap-2 ml-2">
+                            <button 
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleCopyToClipboard(group.date); }}
+                              className="p-3 bg-white hover:bg-indigo-100 text-indigo-700 rounded-xl border border-indigo-200 shadow-sm transition-colors active:scale-95"
+                              title="複製此日紀錄"
+                            >
+                              📋 <span className="text-sm font-bold">複製</span>
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteDay(group.date); }}
+                              className="p-3 bg-white hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200 shadow-sm transition-colors active:scale-95"
+                              title="刪除此日紀錄"
+                            >
+                              🗑️ <span className="text-sm font-bold">刪除</span>
+                            </button>
+                          </div>
                         </div>
                         <span className="inline-flex px-4 py-1.5 bg-indigo-200 text-indigo-800 rounded-full text-base font-black uppercase tracking-widest border border-indigo-200 mt-2">{group.logs.length} 個動作</span>
                       </div>
