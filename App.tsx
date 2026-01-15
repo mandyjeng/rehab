@@ -275,7 +275,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 修正：支援傳入特定日期，或複製全部
   const handleCopyToClipboard = (targetDate?: string) => {
     if (groupedLogs.length === 0) {
       alert(`目前沒有紀錄可以複製喔！`);
@@ -286,34 +285,31 @@ const App: React.FC = () => {
       ? groupedLogs.filter(g => g.date === targetDate)
       : groupedLogs;
 
+    // 格式調整：YYYY-MM-DD,"今日狀況｜動作1｜動作2..."
     const allText = dataToCopy.map(group => {
-      const title = `📅 【${group.date} 復健日誌】`;
-      const status = `🧠 今日狀況：${group.status || '未填寫'}`;
-      const tableHeader = "動作項目\t側邊\t負重\t組數\t組數\t備註";
-      const tableRows = group.logs.map(l => {
-        const sideCol = (l.side === 'N/A' || l.side === '雙側') ? '雙側' : l.side;
-        const exercise = EXERCISES.find(ex => ex.name === l.exerciseName);
-        let loadCol = "-"; let perfCol = "-"; let setsCol = `${l.sets}組`; 
-        if (exercise) {
-          if (exercise.mode === 'STRENGTH') {
-            const wUnit = exercise.name === '打羽球' ? '分' : 'kg';
-            const rUnit = exercise.defaultUnit || '下';
-            const wMatch = l.value.match(new RegExp(`(\\d+(?:\\.\\d+)?)${wUnit}`));
-            const rMatch = l.value.match(new RegExp(`(\\d+)${rUnit}`));
-            loadCol = wMatch ? `${wMatch[1]}${wUnit === '分' ? '分' : '公斤'}` : "0公斤";
-            perfCol = rMatch ? `${rMatch[1]}${rUnit}` : l.value;
-          } else if (exercise.mode === 'REPS_ONLY' || exercise.mode === 'TIME_ONLY') {
-            perfCol = l.value;
-          } else if (exercise.mode === 'CYCLING' || exercise.mode === 'TREADMILL') {
-            loadCol = l.value; perfCol = l.unit;  
-          } else if (exercise.mode === 'RELAX') {
-            perfCol = "已完成";
-          }
+      const parts: string[] = [];
+      if (group.status) parts.push(group.status.trim());
+      
+      group.logs.forEach(l => {
+        let entry = l.exerciseName;
+        // 側邊標記
+        if (l.side !== 'N/A' && l.side !== '雙側') {
+          entry += ` ${l.side}`;
         }
-        return `${l.exerciseName}\t${sideCol}\t${loadCol}\t${perfCol}\t${setsCol}\t${l.notes || ""}`;
-      }).join('\n');
-      return `${title}\n${status}\n\n${tableHeader}\n${tableRows}`;
-    }).join('\n\n' + '─'.repeat(30) + '\n\n');
+        // 數值
+        entry += ` ${l.value.trim()}`;
+        // 組數
+        entry += `×${l.sets}組`;
+        // 備註
+        if (l.notes) {
+          entry += `(${l.notes.trim()})`;
+        }
+        parts.push(entry);
+      });
+      
+      // 合併為一列
+      return `${group.date},"${parts.join('｜')}"`;
+    }).join('\n');
 
     navigator.clipboard.writeText(allText).then(() => {
       setCopied(true);
@@ -344,7 +340,7 @@ const App: React.FC = () => {
       </header>
 
       {/* 底部 Tab */}
-      <div className="sticky top-2 z-50 bg-white/95 backdrop-blur-lg p-2 rounded-full shadow-2xl border border-indigo-100 mb-8 flex w-full max-w-sm mx-auto md:hidden ring-4 ring-indigo-50">
+      <div className="sticky top-2 z-50 bg-white/95 backdrop-blur-lg p-2 rounded-full shadow-2xl border border-indigo-100 mb-8 flex w-full max-sm mx-auto md:hidden ring-4 ring-indigo-50">
         <button onClick={() => { setActiveTab('form'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-4 rounded-full font-black text-lg transition-all ${activeTab === 'form' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-600'}`}>⚡ 紀錄動作</button>
         <button onClick={() => { setActiveTab('history'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-4 rounded-full font-black text-lg transition-all ${activeTab === 'history' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-600'}`}>📅 歷史紀錄</button>
       </div>
@@ -540,7 +536,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       
-                      {/* 操作按鈕 (圖示化並防止斷行) */}
+                      {/* 操作按鈕 */}
                       <div className="flex gap-2 shrink-0">
                         <button 
                           type="button"
