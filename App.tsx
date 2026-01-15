@@ -557,11 +557,18 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     
-                    {/* 今日狀況區塊 */}
-                    <div className="w-full p-4 bg-white/60 border border-indigo-100 rounded-2xl shadow-inner">
-                      <p className="text-lg font-bold text-slate-700 leading-relaxed italic text-center md:text-left">
-                        {group.status ? `“${group.status}”` : '未填寫今日狀況...'}
-                      </p>
+                    {/* 今日狀況區塊 (改為可編輯) */}
+                    <div className="w-full p-4 bg-white/60 border border-indigo-100 rounded-2xl shadow-inner group/status">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">🧠 今日身體狀況 (點擊即可修改)</span>
+                      </div>
+                      <textarea
+                        className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-bold text-slate-700 leading-relaxed italic text-center md:text-left resize-none h-auto min-h-[3rem]"
+                        value={group.status}
+                        placeholder="尚未填寫今日狀況，點此新增..."
+                        onChange={(e) => setDailyStatuses(prev => ({ ...prev, [group.date]: e.target.value }))}
+                        rows={group.status.split('\n').length || 1}
+                      />
                     </div>
                   </div>
                 </div>
