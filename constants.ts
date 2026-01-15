@@ -1,9 +1,8 @@
-
 import { BodyPart, ExerciseDefinition } from './types';
 
 export const EXERCISES: ExerciseDefinition[] = [
   // 誠星動作
-    { id: 'ss1', name: '單腳起跳雙腳落地', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
+  { id: 'ss1', name: '單腳起跳雙腳落地', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss2', name: '脛骨內轉', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'REPS_ONLY' },
   { id: 'ss3', name: '後腳抬高蹲膝蓋前延伸', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss4', name: '彈力繩帶綁腿，墊高單腳臀橋', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'REPS_ONLY' },
@@ -17,6 +16,10 @@ export const EXERCISES: ExerciseDefinition[] = [
   { id: 'ss6', name: '單腳起跳雙腳著地 (大腿朝外/聲小)', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss7', name: '單腳 Airplane', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss8', name: '核心中軸-可樂罐', category: BodyPart.STARS_REHAB, isUnilateral: false, mode: 'REPS_ONLY' },
+  { id: 'ss9', name: '側跪姿動態髖伸蚌殼式', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
+  { id: 'ss10', name: '平板支撐骨盆前後傾旋轉控制', category: BodyPart.STARS_REHAB, isUnilateral: false, mode: 'STRENGTH' },
+  { id: 'ss11', name: '夾滾筒單腿硬舉', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
+  { id: 'ss12', name: '夾滾筒單腿髖飛機', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
 
   // 誠星動作-放鬆
   { id: 'sm1', name: '左右腰部球放鬆', category: BodyPart.STARS_MOBILITY, isUnilateral: true, mode: 'RELAX' },

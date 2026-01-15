@@ -28,10 +28,6 @@ const App: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 用於處理滑動手勢的 Ref
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-
   useEffect(() => {
     const savedLogs = localStorage.getItem('rehab_logs_v16');
     const savedStatuses = localStorage.getItem('rehab_statuses_v16');
@@ -108,36 +104,6 @@ const App: React.FC = () => {
       }));
     }
   }, [currentExercise, editingId]);
-
-  // 滑動手勢處理函數
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    const diffX = touchEndX - touchStartX.current;
-    const diffY = touchEndY - touchStartY.current;
-
-    if (Math.abs(diffX) > 70 && Math.abs(diffX) > Math.abs(diffY)) {
-      if (diffX > 0) {
-        if (activeTab === 'form') {
-          setActiveTab('history');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      } else {
-        if (activeTab === 'history') {
-          setActiveTab('form');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      }
-    }
-    touchStartX.current = null;
-    touchStartY.current = null;
-  };
 
   const handleSaveLog = () => {
     // 修正：如果沒有選擇動作
@@ -359,8 +325,6 @@ const App: React.FC = () => {
   return (
     <div 
       className="pb-32 px-4 max-w-7xl mx-auto flex flex-col items-center font-['Noto_Sans_TC'] select-none"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
     >
       <header className="py-8 md:py-12 text-center w-full transition-all flex flex-col items-center">
         <div className="inline-block p-1 md:p-4 rounded-[2.5rem] md:rounded-[4rem] bg-white shadow-2xl mb-6 md:mb-8 border-4 border-indigo-600 relative overflow-hidden ring-8 ring-indigo-50">
