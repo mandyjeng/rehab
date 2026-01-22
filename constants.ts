@@ -3,7 +3,7 @@ import { BodyPart, ExerciseDefinition } from './types';
 export const EXERCISES: ExerciseDefinition[] = [
   // 誠星動作
   { id: 'ss9', name: '側跪姿動態髖伸蚌殼式', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
-  { id: 'ss10', name: '平板支撐骨盆前後傾旋轉控制', category: BodyPart.STARS_REHAB, isUnilateral: false, mode: 'STRENGTH' },
+  { id: 'ss10', name: '平板支撐骨盆前後傾旋轉控制', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss11', name: '夾滾筒單腿硬舉', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss12', name: '夾滾筒單腿髖飛機', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
   { id: 'ss13', name: '前腳抬高單腳爆發跳', category: BodyPart.STARS_REHAB, isUnilateral: true, mode: 'STRENGTH' },
