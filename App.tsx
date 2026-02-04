@@ -541,52 +541,50 @@ const App: React.FC = () => {
                 </div>
                 <div className="divide-y divide-slate-100 bg-white">
                   {group.logs.map(l => (
-                    <div key={l.id} className="p-6 md:p-8 hover:bg-slate-50/40 transition-all flex flex-col md:flex-row items-start md:items-center gap-6">
-                      <div className="flex-1 space-y-2.5 w-full">
-                        <h3 className="text-2xl md:text-3xl font-black text-slate-950 leading-tight">{l.exerciseName}</h3>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-indigo-600 bg-indigo-50/80 px-4 py-1.5 rounded-xl border border-indigo-100/50">{l.category}</span>
+                    <div key={l.id} className="p-4 md:p-8 hover:bg-slate-50/40 transition-all flex flex-row items-center justify-between gap-4">
+                      {/* 左側資訊塊：佔據剩餘空間，防止被擠壓 */}
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl md:text-3xl font-black text-slate-950 leading-tight truncate">{l.exerciseName}</h3>
                           {l.side !== 'N/A' && (
-                            <span className="w-8 h-8 flex items-center justify-center rounded-full text-sm font-black text-white shadow-lg bg-[#f0641e] ring-4 ring-[#f0641e]/10">{l.side === '雙側' ? '雙' : l.side}</span>
+                            <span className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg bg-[#f0641e] shrink-0">{l.side === '雙側' ? '雙' : l.side}</span>
                           )}
                         </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] md:text-xs font-bold text-indigo-600 bg-indigo-50 px-2 md:px-3 py-1 rounded-lg border border-indigo-100 whitespace-nowrap">{l.category}</span>
+                        </div>
                         {l.notes && (
-                          <div className="mt-3 px-5 py-4 bg-slate-50/80 rounded-2xl border border-slate-100 inline-block w-full sm:w-auto">
-                            <p className="text-lg font-bold text-slate-400 italic">“{l.notes}”</p>
+                          <div className="hidden sm:block mt-1 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                            <p className="text-xs md:text-sm font-bold text-slate-400 italic truncate">“{l.notes}”</p>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex flex-col items-center justify-center w-full md:w-auto shrink-0 md:px-10">
-                        <div className="bg-white px-8 py-5 rounded-[2.2rem] border-2 border-slate-50 shadow-xl shadow-slate-200/40 flex items-center justify-center min-w-[8.5rem] min-h-[4.5rem]">
-                          <span className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight whitespace-nowrap">{l.value}</span>
-                        </div>
-                        <div className="mt-2.5">
-                          <span className="text-base md:text-lg font-bold text-slate-400 tracking-wide flex items-center gap-1.5">
-                            {l.unit === '分鐘' ? (
-                              <span>{l.sets}分鐘</span>
-                            ) : l.sets > 0 ? (
-                              <>
-                                <span className="text-sm opacity-60">×</span> {l.sets} <span className="text-sm opacity-60">組</span>
-                              </>
-                            ) : (
-                              <span className="text-sm opacity-60">組</span>
-                            )}
+                      {/* 右側：數據與按鈕橫向並排，固定不掉落 */}
+                      <div className="flex flex-row items-center gap-3 md:gap-6 shrink-0">
+                        {/* 數據氣泡區 */}
+                        <div className="flex flex-col items-center">
+                          <div className="bg-white px-3 md:px-6 py-2 md:py-3 rounded-[1.2rem] md:rounded-[2rem] border-2 border-slate-50 shadow-lg shadow-slate-200/30 flex items-center justify-center min-w-[5rem] md:min-w-[7rem]">
+                            <span className="text-sm md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">{l.value}</span>
+                          </div>
+                          <span className="mt-1 text-[10px] md:text-sm font-bold text-slate-400 whitespace-nowrap italic">
+                            {l.unit === '分鐘' ? `${l.sets}分鐘` : `× ${l.sets} 組`}
                           </span>
                         </div>
-                      </div>
 
-                      <div className="flex flex-row md:flex-col gap-3 shrink-0 w-full md:w-auto justify-end border-t md:border-t-0 pt-5 md:pt-0">
-                        <button onClick={() => startEditing(l)} className="w-13 h-13 md:w-16 md:h-16 flex items-center justify-center bg-white text-indigo-600 rounded-2xl border border-indigo-50 shadow-lg shadow-indigo-100/30 hover:bg-indigo-50 active:scale-90 transition-all">
-                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                          </svg>
-                        </button>
-                        <button onClick={() => handleDeleteLog(l.id, l.exerciseName)} className="w-13 h-13 md:w-16 md:h-16 flex items-center justify-center bg-white text-rose-500 rounded-2xl border border-rose-50 shadow-lg shadow-rose-100/30 hover:bg-rose-50 active:scale-90 transition-all">
-                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                          </svg>
-                        </button>
+                        {/* 按鈕操作區：固定橫向排列 */}
+                        <div className="flex flex-row gap-1.5 md:gap-2">
+                          <button onClick={() => startEditing(l)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-indigo-600 rounded-xl md:rounded-2xl border border-indigo-50 shadow-md hover:bg-indigo-50 active:scale-90 transition-all">
+                            <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                            </svg>
+                          </button>
+                          <button onClick={() => handleDeleteLog(l.id, l.exerciseName)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-rose-500 rounded-xl md:rounded-2xl border border-rose-50 shadow-md hover:bg-rose-50 active:scale-90 transition-all">
+                            <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
