@@ -18,6 +18,9 @@ const App: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
   const [searchTerm, setSearchTerm] = useState('');
+  const [historySearchTerm, setHistorySearchTerm] = useState(''); 
+  const [startDate, setStartDate] = useState(''); 
+  const [endDate, setEndDate] = useState(''); 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoadingExercises, setIsLoadingExercises] = useState(true);
   const [isWritingId, setIsWritingId] = useState<string | null>(null);
@@ -232,11 +235,25 @@ const App: React.FC = () => {
   };
 
   const groupedLogs = useMemo(() => {
+    const filterTerm = historySearchTerm.trim().toLowerCase();
+    
+    const filteredLogs = logs.filter(l => {
+      const matchName = filterTerm ? l.exerciseName.toLowerCase().includes(filterTerm) : true;
+      const matchStart = startDate ? l.date >= startDate : true;
+      const matchEnd = endDate ? l.date <= endDate : true;
+      return matchName && matchStart && matchEnd;
+    });
+
     const groups: Record<string, ExerciseLog[]> = {};
-    logs.forEach(l => { if (!groups[l.date]) groups[l.date] = []; groups[l.date].push(l); });
-    const allDates = new Set([...Object.keys(groups), ...Object.keys(dailyStatuses).filter(d => dailyStatuses[d].trim() || (groups[d] && groups[d].length > 0))]);
+    filteredLogs.forEach(l => { if (!groups[l.date]) groups[l.date] = []; groups[l.date].push(l); });
+    
+    const hasFilter = filterTerm || startDate || endDate;
+    const allDates = hasFilter
+      ? new Set(Object.keys(groups))
+      : new Set([...Object.keys(groups), ...Object.keys(dailyStatuses).filter(d => dailyStatuses[d].trim() || (groups[d] && groups[d].length > 0))]);
+
     return Array.from(allDates).sort((a, b) => b.localeCompare(a)).map(date => ({ date, logs: groups[date] || [], status: dailyStatuses[date] || '' }));
-  }, [logs, dailyStatuses]);
+  }, [logs, dailyStatuses, historySearchTerm, startDate, endDate]);
 
   const formatGroupToString = (group: {date: string, logs: ExerciseLog[], status: string}) => {
     const parts: string[] = [];
@@ -348,7 +365,7 @@ const App: React.FC = () => {
         <p className="mt-2 text-slate-900 font-black tracking-widest uppercase text-sm sm:text-base">mm復健日記</p>
       </header>
 
-      <div className="sticky top-2 z-50 bg-white/95 backdrop-blur-lg p-1.5 rounded-full shadow-2xl border border-indigo-100 mb-8 flex w-full max-w-sm mx-auto md:hidden ring-4 ring-indigo-50">
+      <div className="sticky top-2 z-50 bg-white/95 backdrop-blur-lg p-1.5 rounded-full shadow-2xl border border-indigo-100 mb-8 flex w-full max-sm mx-auto md:hidden ring-4 ring-indigo-50">
         <button onClick={() => { setActiveTab('form'); window.scrollTo({ top: 0 }); }} className={`flex-1 py-3.5 rounded-full font-black text-base transition-all ${activeTab === 'form' ? 'bg-indigo-700 text-white shadow-lg' : 'text-slate-600'}`}>⚡ 紀錄動作</button>
         <button onClick={() => { setActiveTab('history'); window.scrollTo({ top: 0 }); }} className={`flex-1 py-3.5 rounded-full font-black text-base transition-all ${activeTab === 'history' ? 'bg-indigo-700 text-white shadow-lg' : 'text-slate-600'}`}>📅 歷史紀錄</button>
       </div>
@@ -469,128 +486,148 @@ const App: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-5 px-1">
             <h2 className="text-3xl md:text-4xl font-black text-slate-950 self-start">歷史復健日誌</h2>
             <div className="flex flex-row gap-4 w-full md:w-auto justify-center">
-              {/* 清空按鈕 */}
               <div className="group relative">
-                <button 
-                  type="button" 
-                  onClick={handleDeleteAll} 
-                  className="w-16 h-16 flex items-center justify-center rounded-2xl font-black bg-white text-rose-600 border-2 border-rose-100 shadow-sm transition-all hover:bg-rose-50 active:scale-95"
-                >
+                <button type="button" onClick={handleDeleteAll} className="w-16 h-16 flex items-center justify-center rounded-2xl font-black bg-white text-rose-600 border-2 border-rose-100 shadow-sm transition-all hover:bg-rose-50 active:scale-95">
                   <span className="text-3xl transition-transform group-hover:scale-110">🗑️</span>
                 </button>
                 <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">清空紀錄</span>
               </div>
-              
-              {/* 雲端還原按鈕 */}
               <div className="group relative">
-                <button 
-                  type="button" 
-                  onClick={handleSyncAllToSheet} 
-                  disabled={isSyncingAll} 
-                  className={`w-16 h-16 flex items-center justify-center rounded-2xl font-black shadow-md transition-all active:scale-95 ${isSyncingAll ? 'bg-slate-300 text-slate-500 animate-pulse' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'}`}
-                >
-                  <span className={`text-3xl transition-transform ${!isSyncingAll ? 'group-hover:rotate-180' : ''}`}>
-                    {isSyncingAll ? '⏳' : '🔄'}
-                  </span>
+                <button type="button" onClick={handleSyncAllToSheet} disabled={isSyncingAll} className={`w-16 h-16 flex items-center justify-center rounded-2xl font-black shadow-md transition-all active:scale-95 ${isSyncingAll ? 'bg-slate-300 text-slate-500 animate-pulse' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'}`}>
+                  <span className={`text-3xl transition-transform ${!isSyncingAll ? 'group-hover:rotate-180' : ''}`}>{isSyncingAll ? '⏳' : '🔄'}</span>
                 </button>
                 <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">雲端還原</span>
               </div>
-
-              {/* 複製全部按鈕 */}
               <div className="group relative">
-                <button 
-                  type="button" 
-                  onClick={handleCopyToClipboard} 
-                  className={`w-16 h-16 flex items-center justify-center rounded-2xl font-black shadow-md transition-all active:scale-95 ${copied ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-950 text-white hover:bg-slate-800 shadow-slate-300'}`}
-                >
-                  <span className="text-3xl transition-transform group-hover:translate-y-[-2px]">
-                    {copied ? '✅' : '📋'}
-                  </span>
+                <button type="button" onClick={handleCopyToClipboard} className={`w-16 h-16 flex items-center justify-center rounded-2xl font-black shadow-md transition-all active:scale-95 ${copied ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-950 text-white hover:bg-slate-800 shadow-slate-300'}`}>
+                  <span className="text-3xl transition-transform group-hover:translate-y-[-2px]">{copied ? '✅' : '📋'}</span>
                 </button>
                 <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">{copied ? '已複製！' : '複製全部'}</span>
               </div>
             </div>
           </div>
 
-          <div className="space-y-8 md:space-y-10">
-            {groupedLogs.map(group => (
-              <div key={group.date} className="glass-card rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border-2 border-white shadow-2xl bg-white/80">
-                <div className="bg-indigo-50/50 p-5 md:p-8 border-b-2 border-indigo-100 relative">
-                  <div className="absolute left-0 top-0 bottom-0 w-3 md:w-4 bg-indigo-600"></div>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                      <div className="w-12 h-12 md:w-14 md:h-14 bg-indigo-600 rounded-xl flex items-center justify-center text-xl md:text-2xl shadow-lg shrink-0">📅</div>
-                      <div className="flex flex-col overflow-hidden">
-                        <span className="text-xl sm:text-2xl md:text-4xl font-black text-indigo-950 truncate">{formatDateString(group.date)}</span>
-                        <span className="text-xs md:text-sm font-bold text-indigo-700/60 uppercase tracking-widest">{group.logs.length} 個動作</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1.5 md:gap-2 shrink-0">
-                      <button onClick={() => handleWriteToSheet(group.date)} disabled={isWritingId === group.date} className={`w-10 h-10 md:w-13 md:h-13 flex items-center justify-center bg-white text-emerald-600 rounded-xl border border-emerald-100 shadow-sm transition-all active:scale-90 ${isWritingId === group.date ? 'animate-pulse' : ''}`}>{isWritingId === group.date ? '⏳' : '📤'}</button>
-                      <button onClick={() => handleCopyDay(group.date)} className={`w-10 h-10 md:w-13 md:h-13 flex items-center justify-center bg-white rounded-xl border shadow-sm transition-all active:scale-90 ${copiedDayId === group.date ? 'text-emerald-600 border-emerald-300' : 'text-indigo-600 border-indigo-100'}`}>{copiedDayId === group.date ? '✅' : '📋'}</button>
-                      <button onClick={() => handleDeleteDay(group.date)} className="w-10 h-10 md:w-13 md:h-13 flex items-center justify-center bg-white text-rose-500 rounded-xl border border-rose-100 shadow-sm transition-all active:scale-90 hover:bg-rose-50">🗑️</button>
-                    </div>
-                  </div>
-                  <textarea 
-                    className="mt-4 md:mt-6 w-full p-4 bg-white/60 border border-indigo-100 rounded-2xl shadow-inner text-base md:text-lg font-bold text-slate-700 italic resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-400 block"
-                    placeholder="無今日紀錄..."
-                    value={dailyStatuses[group.date] || ''}
-                    rows={2}
-                    onChange={(e) => setDailyStatuses(prev => ({ ...prev, [group.date]: e.target.value }))}
+          {/* 修正後的過濾器排版：移除重疊，改用上方小標籤 */}
+          <div className="glass-card rounded-3xl p-5 md:p-6 space-y-4 shadow-inner border border-slate-100">
+            <div className="flex flex-col md:flex-row gap-6">
+              <div className="flex-1 space-y-2">
+                <label className="text-xs font-black text-slate-400 ml-1 flex items-center gap-1">🔍 動作關鍵字</label>
+                <input 
+                  type="text" 
+                  placeholder="輸入動作搜尋..." 
+                  className="w-full px-5 py-3.5 rounded-2xl bg-white/80 border border-slate-200 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all text-base"
+                  value={historySearchTerm}
+                  onChange={(e) => setHistorySearchTerm(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex flex-row items-end gap-3 shrink-0">
+                <div className="space-y-2 flex-1 md:w-36">
+                  <label className="text-[10px] font-black text-slate-400 ml-1">📅 開始日期</label>
+                  <input 
+                    type="date" 
+                    className="w-full px-3 py-3 rounded-2xl bg-white/80 border border-slate-200 font-bold text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
                   />
                 </div>
-                <div className="divide-y divide-slate-100 bg-white">
-                  {group.logs.map(l => (
-                    <div key={l.id} className="p-4 md:p-8 hover:bg-slate-50/40 transition-all flex flex-row items-center justify-between gap-4">
-                      {/* 左側資訊塊：佔據剩餘空間，防止被擠壓 */}
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-xl md:text-3xl font-black text-slate-950 leading-tight truncate">{l.exerciseName}</h3>
-                          {l.side !== 'N/A' && (
-                            <span className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg bg-[#f0641e] shrink-0">{l.side === '雙側' ? '雙' : l.side}</span>
-                          )}
+                <span className="text-slate-300 font-black mb-4">─</span>
+                <div className="space-y-2 flex-1 md:w-36">
+                  <label className="text-[10px] font-black text-slate-400 ml-1">📅 結束日期</label>
+                  <input 
+                    type="date" 
+                    className="w-full px-3 py-3 rounded-2xl bg-white/80 border border-slate-200 font-bold text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+                {(historySearchTerm || startDate || endDate) && (
+                  <button 
+                    onClick={() => { setHistorySearchTerm(''); setStartDate(''); setEndDate(''); }}
+                    className="w-11 h-11 flex items-center justify-center bg-slate-100 text-slate-400 rounded-full hover:bg-rose-50 hover:text-rose-400 transition-all active:scale-90 mb-0.5"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-8 md:space-y-10">
+            {groupedLogs.length > 0 ? (
+              groupedLogs.map(group => (
+                <div key={group.date} className="glass-card rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border-2 border-white shadow-2xl bg-white/80">
+                  <div className="bg-indigo-50/50 p-5 md:p-8 border-b-2 border-indigo-100 relative">
+                    <div className="absolute left-0 top-0 bottom-0 w-3 md:w-4 bg-indigo-600"></div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-indigo-600 rounded-xl flex items-center justify-center text-xl md:text-2xl shadow-lg shrink-0">📅</div>
+                        <div className="flex flex-col overflow-hidden">
+                          <span className="text-xl sm:text-2xl md:text-4xl font-black text-indigo-950 truncate">{formatDateString(group.date)}</span>
+                          <span className="text-xs md:text-sm font-bold text-indigo-700/60 uppercase tracking-widest">{group.logs.length} 個動作</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] md:text-xs font-bold text-indigo-600 bg-indigo-50 px-2 md:px-3 py-1 rounded-lg border border-indigo-100 whitespace-nowrap">{l.category}</span>
-                        </div>
-                        {l.notes && (
-                          <div className="hidden sm:block mt-1 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
-                            <p className="text-xs md:text-sm font-bold text-slate-400 italic truncate">“{l.notes}”</p>
-                          </div>
-                        )}
                       </div>
-
-                      {/* 右側：數據與按鈕橫向並排，固定不掉落 */}
-                      <div className="flex flex-row items-center gap-3 md:gap-6 shrink-0">
-                        {/* 數據氣泡區 */}
-                        <div className="flex flex-col items-center">
-                          <div className="bg-white px-3 md:px-6 py-2 md:py-3 rounded-[1.2rem] md:rounded-[2rem] border-2 border-slate-50 shadow-lg shadow-slate-200/30 flex items-center justify-center min-w-[5rem] md:min-w-[7rem]">
-                            <span className="text-sm md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">{l.value}</span>
-                          </div>
-                          <span className="mt-1 text-[10px] md:text-sm font-bold text-slate-400 whitespace-nowrap italic">
-                            {l.unit === '分鐘' ? `${l.sets}分鐘` : `× ${l.sets} 組`}
-                          </span>
-                        </div>
-
-                        {/* 按鈕操作區：固定橫向排列 */}
-                        <div className="flex flex-row gap-1.5 md:gap-2">
-                          <button onClick={() => startEditing(l)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-indigo-600 rounded-xl md:rounded-2xl border border-indigo-50 shadow-md hover:bg-indigo-50 active:scale-90 transition-all">
-                            <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                          </button>
-                          <button onClick={() => handleDeleteLog(l.id, l.exerciseName)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-rose-500 rounded-xl md:rounded-2xl border border-rose-50 shadow-md hover:bg-rose-50 active:scale-90 transition-all">
-                            <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                            </svg>
-                          </button>
-                        </div>
+                      <div className="flex gap-1.5 md:gap-2 shrink-0">
+                        <button onClick={() => handleWriteToSheet(group.date)} disabled={isWritingId === group.date} className={`w-10 h-10 md:w-13 md:h-13 flex items-center justify-center bg-white text-emerald-600 rounded-xl border border-emerald-100 shadow-sm transition-all active:scale-90 ${isWritingId === group.date ? 'animate-pulse' : ''}`}>{isWritingId === group.date ? '⏳' : '📤'}</button>
+                        <button onClick={() => handleCopyDay(group.date)} className={`w-10 h-10 md:w-13 md:h-13 flex items-center justify-center bg-white rounded-xl border shadow-sm transition-all active:scale-90 ${copiedDayId === group.date ? 'text-emerald-600 border-emerald-300' : 'text-indigo-600 border-indigo-100'}`}>{copiedDayId === group.date ? '✅' : '📋'}</button>
+                        <button onClick={() => handleDeleteDay(group.date)} className="w-10 h-10 md:w-13 md:h-13 flex items-center justify-center bg-white text-rose-500 rounded-xl border border-rose-100 shadow-sm transition-all active:scale-90 hover:bg-rose-50">🗑️</button>
                       </div>
                     </div>
-                  ))}
+                    <textarea 
+                      className="mt-4 md:mt-6 w-full p-4 bg-white/60 border border-indigo-100 rounded-2xl shadow-inner text-base md:text-lg font-bold text-slate-700 italic resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-400 block"
+                      placeholder="無今日紀錄..."
+                      value={dailyStatuses[group.date] || ''}
+                      rows={2}
+                      onChange={(e) => setDailyStatuses(prev => ({ ...prev, [group.date]: e.target.value }))}
+                    />
+                  </div>
+                  <div className="divide-y divide-slate-100 bg-white">
+                    {group.logs.map(l => (
+                      <div key={l.id} className="p-4 md:p-8 hover:bg-slate-50/40 transition-all flex flex-row items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xl md:text-3xl font-black text-slate-950 leading-tight truncate">{l.exerciseName}</h3>
+                            {l.side !== 'N/A' && (
+                              <span className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg bg-[#f0641e] shrink-0">{l.side === '雙側' ? '雙' : l.side}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] md:text-xs font-bold text-indigo-600 bg-indigo-50 px-2 md:px-3 py-1 rounded-lg border border-indigo-100 whitespace-nowrap">{l.category}</span>
+                          </div>
+                          {l.notes && (
+                            <div className="hidden sm:block mt-1 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                              <p className="text-xs md:text-sm font-bold text-slate-400 italic truncate">“{l.notes}”</p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-row items-center gap-3 md:gap-6 shrink-0">
+                          <div className="flex flex-col items-center">
+                            <div className="bg-white px-3 md:px-6 py-2 md:py-3 rounded-[1.2rem] md:rounded-[2rem] border-2 border-slate-50 shadow-lg shadow-slate-200/30 flex items-center justify-center min-w-[5rem] md:min-w-[7rem]">
+                              <span className="text-sm md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">{l.value}</span>
+                            </div>
+                            <span className="mt-1 text-[10px] md:text-sm font-bold text-slate-400 whitespace-nowrap italic">{l.unit === '分鐘' ? `${l.sets}分鐘` : `× ${l.sets} 組`}</span>
+                          </div>
+                          <div className="flex flex-row gap-1.5 md:gap-2">
+                            <button onClick={() => startEditing(l)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-indigo-600 rounded-xl md:rounded-2xl border border-indigo-50 shadow-md hover:bg-indigo-50 active:scale-90 transition-all">
+                              <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                            </button>
+                            <button onClick={() => handleDeleteLog(l.id, l.exerciseName)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-rose-500 rounded-xl md:rounded-2xl border border-rose-50 shadow-md hover:bg-rose-50 active:scale-90 transition-all">
+                              <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-20 bg-slate-50/50 rounded-[3rem] border-4 border-dashed border-slate-100">
+                <span className="text-6xl block mb-4">🔍</span>
+                <h3 className="text-2xl font-black text-slate-300">找不到符合條件的復健紀錄</h3>
+                <button onClick={() => { setHistorySearchTerm(''); setStartDate(''); setEndDate(''); }} className="mt-4 text-indigo-500 font-bold underline">重設搜尋條件</button>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
