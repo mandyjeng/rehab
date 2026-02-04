@@ -1,23 +1,25 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { EXERCISES, CATEGORIES } from './constants';
+import { EXERCISES_API_URL, CATEGORIES } from './constants';
 import { ExerciseLog, FormData, BodyPart, ExerciseDefinition } from './types';
 
 const App: React.FC = () => {
+  const [exercises, setExercises] = useState<ExerciseDefinition[]>([]);
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [dailyStatuses, setDailyStatuses] = useState<Record<string, string>>({}); 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoadingExercises, setIsLoadingExercises] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
     date: new Date().toISOString().split('T')[0],
-    exerciseId: '', // 預設為空，對應「請選擇」
+    exerciseId: '', 
     side: '記錄雙側',
-    sets: 1, // 總組數預設填 1
-    weight: '0', // 初始預設填 0
+    sets: 1, 
+    weight: '0', 
     reps: '10',
     time: '',
     resistance: '',
@@ -27,6 +29,31 @@ const App: React.FC = () => {
   });
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // 您的 Google Sheet 網址
+  const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1TBuSUnuO3HTtG-9ZHDmDrlHGSNlEip3WUntbtWQcre8/edit?gid=0#gid=0';
+
+  // 從 Google Sheets 獲取動作清單
+  useEffect(() => {
+    const fetchExercises = async () => {
+      try {
+        setIsLoadingExercises(true);
+        if (EXERCISES_API_URL.includes('YOUR_DEPLOYED_GAS_ID')) {
+          console.warn("尚未設定 GAS API URL");
+          setIsLoadingExercises(false);
+          return;
+        }
+        const response = await fetch(EXERCISES_API_URL);
+        const data = await response.json();
+        setExercises(data);
+      } catch (error) {
+        console.error("無法從 Google Sheets 載入動作清單:", error);
+      } finally {
+        setIsLoadingExercises(false);
+      }
+    };
+    fetchExercises();
+  }, []);
 
   useEffect(() => {
     const savedLogs = localStorage.getItem('rehab_logs_v16');
@@ -43,7 +70,6 @@ const App: React.FC = () => {
     localStorage.setItem('rehab_statuses_v16', JSON.stringify(dailyStatuses));
   }, [dailyStatuses]);
 
-  // 點擊外部關閉下拉選單
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -61,18 +87,17 @@ const App: React.FC = () => {
   };
 
   const currentExercise = useMemo(() => 
-    EXERCISES.find(e => e.id === formData.exerciseId) || null
-  , [formData.exerciseId]);
+    exercises.find(e => e.id === formData.exerciseId) || null
+  , [formData.exerciseId, exercises]);
 
-  // 過濾動作邏輯
   const filteredExercises = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    if (!term) return EXERCISES;
-    return EXERCISES.filter(ex => 
+    if (!term) return exercises;
+    return exercises.filter(ex => 
       ex.name.toLowerCase().includes(term) || 
       ex.category.toLowerCase().includes(term)
     );
-  }, [searchTerm]);
+  }, [searchTerm, exercises]);
 
   const filteredCategories = useMemo(() => {
     return CATEGORIES.filter(cat => 
@@ -80,35 +105,35 @@ const App: React.FC = () => {
     );
   }, [filteredExercises]);
 
+  // 當選擇動作時，根據 Sheets 定義自動填充
   useEffect(() => {
     if (!editingId && currentExercise) {
-      // 根據特定規則設定次數/場數/趟數的預設值
-      let defaultReps = '10';
-      if (currentExercise.name === '打羽球') {
-        defaultReps = '5';
-      } else if (currentExercise.category === BodyPart.BADMINTON) {
-        defaultReps = '3';
+      let defaultVal = currentExercise.defaultQuantity || '';
+      
+      if (!defaultVal) {
+        if (currentExercise.name === '打羽球') defaultVal = '5';
+        else if (currentExercise.category === BodyPart.BADMINTON) defaultVal = '3';
+        else if (currentExercise.mode === 'TIME_ONLY') defaultVal = '30';
+        else if (currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') defaultVal = '15';
+        else defaultVal = '10';
       }
 
       setFormData(prev => ({
         ...prev,
         side: currentExercise.isUnilateral ? '左' : 'N/A' as any,
-        // 如果是地雷管類別預設 20，其餘 0
         weight: currentExercise.category === BodyPart.LANDMINE ? '20' : '0',
-        reps: currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'STRENGTH' ? defaultReps : '',
-        time: currentExercise.mode === 'TIME_ONLY' ? '30' : (currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '15' : ''),
+        reps: (currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'STRENGTH') ? defaultVal : '',
+        time: (currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') ? defaultVal : '',
         resistance: '',
         slope: '',
         speed: '',
-        sets: 1 // 總組數預設為 1
+        sets: currentExercise.name === '打羽球' ? 0 : 1 // 羽球初始組數為 0
       }));
     }
   }, [currentExercise, editingId]);
 
   const handleSaveLog = () => {
-    // 修正：如果沒有選擇動作
     if (!currentExercise) {
-      // 檢查是否填寫了身體狀況，如果有則提示狀況已更新，並導向歷史紀錄以便確認
       if (currentDailyStatus.trim()) {
         alert("今日身體狀況已更新完成！✅");
         setActiveTab('history');
@@ -122,13 +147,18 @@ const App: React.FC = () => {
     setIsProcessing(true);
     let finalValue = "";
     let finalUnit = "";
+    let finalSets = formData.sets;
+
+    if (currentExercise.name === '打羽球') {
+      finalSets = 0;
+    }
 
     switch(currentExercise.mode) {
       case 'STRENGTH':
         const wUnit = currentExercise.name === '打羽球' ? '分 ' : 'kg ';
         const rUnit = currentExercise.defaultUnit || '下';
         finalValue = `${formData.weight !== '' ? formData.weight + wUnit : '0' + wUnit}${formData.reps}${rUnit}`;
-        finalUnit = '組';
+        finalUnit = currentExercise.name === '打羽球' ? (currentExercise.defaultUnit || '場') : '組';
         break;
       case 'REPS_ONLY':
         const unitLabel = currentExercise.defaultUnit || '下';
@@ -157,44 +187,36 @@ const App: React.FC = () => {
       ? (formData.side === '記錄雙側' ? '雙側' : formData.side as any) 
       : 'N/A';
 
+    const logData = {
+      date: formData.date,
+      exerciseName: currentExercise.name,
+      category: currentExercise.category,
+      side: sideToSave,
+      sets: finalSets,
+      value: finalValue,
+      unit: finalUnit,
+      notes: formData.notes
+    };
+
     if (editingId) {
-      setLogs(prev => prev.map(log => log.id === editingId ? {
-        ...log,
-        date: formData.date,
-        exerciseName: currentExercise.name,
-        category: currentExercise.category,
-        side: sideToSave,
-        sets: formData.sets,
-        value: finalValue,
-        unit: finalUnit,
-        notes: formData.notes
-      } : log));
+      setLogs(prev => prev.map(log => log.id === editingId ? { ...log, ...logData } : log));
       setEditingId(null);
       setActiveTab('history');
     } else {
       const newLog: ExerciseLog = {
         id: crypto.randomUUID(),
-        date: formData.date,
-        exerciseName: currentExercise.name,
-        category: currentExercise.category,
-        side: sideToSave,
-        sets: formData.sets,
-        value: finalValue,
-        unit: finalUnit,
-        notes: formData.notes
+        ...logData
       };
       setLogs(prev => [newLog, ...prev]);
-      // 新增動作後自動導向歷史頁籤
       setActiveTab('history');
     }
     
-    // 儲存後捲動至頂部
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     setTimeout(() => {
       setFormData(prev => ({ 
         ...prev, 
-        exerciseId: '', // 儲存後重置為「請選擇」
+        exerciseId: '', 
         weight: '0', 
         sets: 1,
         notes: '' 
@@ -204,7 +226,7 @@ const App: React.FC = () => {
   };
 
   const startEditing = (log: ExerciseLog) => {
-    const exercise = EXERCISES.find(ex => ex.name === log.exerciseName);
+    const exercise = exercises.find(ex => ex.name === log.exerciseName);
     if (!exercise) return;
     let weight = '', reps = '', time = '', resistance = '', slope = '', speed = '';
     if (exercise.mode === 'STRENGTH') {
@@ -243,7 +265,6 @@ const App: React.FC = () => {
       groups[log.date].push(log);
     });
     
-    // 獲取所有有紀錄或有狀態（且狀態不為空）的日期
     const statusDates = Object.keys(dailyStatuses).filter(d => {
       const status = dailyStatuses[d];
       return typeof status === 'string' && status.trim() !== '';
@@ -285,29 +306,25 @@ const App: React.FC = () => {
       ? groupedLogs.filter(g => g.date === targetDate)
       : groupedLogs;
 
-    // 格式調整：YYYY-MM-DD,"今日狀況｜動作1｜動作2..."
     const allText = dataToCopy.map(group => {
       const parts: string[] = [];
       if (group.status) parts.push(group.status.trim());
       
       group.logs.forEach(l => {
         let entry = l.exerciseName;
-        // 側邊標記
         if (l.side !== 'N/A' && l.side !== '雙側') {
           entry += ` ${l.side}`;
         }
-        // 數值
         entry += ` ${l.value.trim()}`;
-        // 組數
-        entry += `×${l.sets}組`;
-        // 備註
+        if (l.sets > 0) {
+          entry += `×${l.sets}組`;
+        }
         if (l.notes) {
           entry += `(${l.notes.trim()})`;
         }
         parts.push(entry);
       });
       
-      // 合併為一列
       return `${group.date},"${parts.join('｜')}"`;
     }).join('\n');
 
@@ -319,18 +336,13 @@ const App: React.FC = () => {
   };
 
   return (
-    <div 
-      className="pb-32 px-4 max-w-7xl mx-auto flex flex-col items-center font-['Noto_Sans_TC'] select-none"
-    >
-      <header className="py-8 md:py-12 text-center w-full transition-all flex flex-col items-center">
+    <div className="pb-32 px-4 max-w-7xl mx-auto flex flex-col items-center font-['Noto_Sans_TC'] select-none">
+      <header className="py-8 md:py-12 text-center w-full transition-all flex flex-col items-center relative">
         <div className="inline-block p-1 md:p-4 rounded-[2.5rem] md:rounded-[4rem] bg-white shadow-2xl mb-6 md:mb-8 border-4 border-indigo-600 relative overflow-hidden ring-8 ring-indigo-50">
           <img 
             src="https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2069&auto=format&fit=crop" 
             alt="Workout Illustration" 
             className="w-24 h-24 md:w-48 md:h-48 object-cover rounded-[2rem]"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1574680096145-d05b474e2155?q=80&w=2069&auto=format&fit=crop";
-            }}
           />
         </div>
         <h1 className="text-4xl md:text-6xl font-black text-slate-950 tracking-tight leading-tight">
@@ -339,14 +351,12 @@ const App: React.FC = () => {
         <p className="mt-2 text-slate-900 font-black tracking-widest text-base md:text-lg uppercase">mm復健日記</p>
       </header>
 
-      {/* 底部 Tab */}
       <div className="sticky top-2 z-50 bg-white/95 backdrop-blur-lg p-2 rounded-full shadow-2xl border border-indigo-100 mb-8 flex w-full max-sm mx-auto md:hidden ring-4 ring-indigo-50">
         <button onClick={() => { setActiveTab('form'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-4 rounded-full font-black text-lg transition-all ${activeTab === 'form' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-600'}`}>⚡ 紀錄動作</button>
         <button onClick={() => { setActiveTab('history'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-4 rounded-full font-black text-lg transition-all ${activeTab === 'history' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-600'}`}>📅 歷史紀錄</button>
       </div>
 
       <div className="flex flex-col gap-8 md:gap-10 w-full max-w-4xl">
-        {/* 表單區域 */}
         <div className={`${activeTab === 'form' ? 'block' : 'hidden md:block'} space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
           <div className="glass-card rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 border-b-4 md:border-b-8 border-emerald-600 shadow-xl shadow-emerald-100/40">
             <div className="flex flex-col md:flex-row gap-8 md:gap-8 items-start">
@@ -370,24 +380,27 @@ const App: React.FC = () => {
               <section className="space-y-4">
                 <label className="text-lg md:text-base font-black text-slate-950 mb-3 block tracking-tighter uppercase tracking-widest">🎯 選擇復健動作</label>
                 
-                {/* 整合式搜尋選單 (Searchable Select) */}
                 <div className="relative" ref={dropdownRef}>
                   <button 
                     type="button"
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 focus:border-indigo-700 outline-none font-black text-slate-950 shadow-sm text-xl md:text-lg flex justify-between items-center transition-all hover:bg-slate-50"
+                    onClick={() => !isLoadingExercises && setIsDropdownOpen(!isDropdownOpen)}
+                    className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 focus:border-indigo-700 outline-none font-black text-slate-950 shadow-sm text-xl md:text-lg flex justify-between items-center transition-all hover:bg-slate-50 disabled:opacity-50"
+                    disabled={isLoadingExercises}
                   >
                     <span className={currentExercise ? "text-slate-950" : "text-slate-400"}>
-                      {currentExercise ? currentExercise.name : '── 請點擊選擇動作 ──'}
+                      {isLoadingExercises ? '載入動作清單中...' : (currentExercise ? currentExercise.name : '── 請點擊選擇動作 ──')}
                     </span>
-                    <svg className={`w-6 h-6 text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M19 9l-7 7-7-7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    {isLoadingExercises ? (
+                      <div className="w-6 h-6 border-4 border-indigo-200 border-t-indigo-700 rounded-full animate-spin"></div>
+                    ) : (
+                      <svg className={`w-6 h-6 text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 9l-7 7-7-7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
                   </button>
 
                   {isDropdownOpen && (
                     <div className="absolute z-[100] w-full mt-2 bg-white rounded-3xl shadow-2xl border-2 border-indigo-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                      {/* 下拉選單內的搜尋框 */}
                       <div className="p-4 border-b border-slate-100 sticky top-0 bg-white shadow-sm">
                         <div className="relative">
                           <input 
@@ -407,7 +420,6 @@ const App: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* 動作清單 */}
                       <div className="max-h-[400px] overflow-y-auto overscroll-contain">
                         {filteredCategories.length > 0 ? (
                           filteredCategories.map(cat => (
@@ -479,7 +491,7 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                {currentExercise && currentExercise.mode !== 'RELAX' && currentExercise.mode !== 'CYCLING' && currentExercise.mode !== 'TREADMILL' && (
+                {currentExercise && currentExercise.mode !== 'RELAX' && currentExercise.mode !== 'CYCLING' && currentExercise.mode !== 'TREADMILL' && currentExercise.name !== '打羽球' && (
                   <section>
                     <label className="text-lg md:text-base font-black text-slate-950 mb-4 block text-center uppercase tracking-widest">總組數</label>
                     <div className="flex items-center justify-center space-x-12">
@@ -490,9 +502,14 @@ const App: React.FC = () => {
                   </section>
                 )}
                 
-                {!currentExercise && (
+                {!currentExercise && !isLoadingExercises && (
                   <div className="py-12 text-center text-slate-400 font-bold italic">
                     請從上方選單選擇動作項目...
+                  </div>
+                )}
+                {isLoadingExercises && (
+                  <div className="py-12 text-center text-indigo-400 font-bold italic animate-pulse">
+                    正在獲取雲端動作清單...
                   </div>
                 )}
               </div>
@@ -502,14 +519,35 @@ const App: React.FC = () => {
                 <textarea placeholder="今日體感..." className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 focus:border-indigo-700 outline-none h-24 font-bold text-slate-950 shadow-inner resize-none text-xl md:text-lg leading-relaxed" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
               </section>
 
-              <button type="button" onClick={handleSaveLog} disabled={isProcessing} className={`w-full py-7 rounded-[2.5rem] font-black text-white shadow-2xl transition-all transform active:scale-95 text-2xl md:text-3xl ${isProcessing ? 'bg-slate-400' : editingId ? 'bg-gradient-to-br from-orange-500 to-rose-600' : 'bg-gradient-to-br from-indigo-800 via-indigo-900 to-slate-950'}`}>
+              <button type="button" onClick={handleSaveLog} disabled={isProcessing || isLoadingExercises} className={`w-full py-7 rounded-[2.5rem] font-black text-white shadow-2xl transition-all transform active:scale-95 text-2xl md:text-3xl ${isProcessing ? 'bg-slate-400' : editingId ? 'bg-gradient-to-br from-orange-500 to-rose-600' : 'bg-gradient-to-br from-indigo-800 via-indigo-900 to-slate-950'}`}>
                 {isProcessing ? '處理中...' : editingId ? '💾 儲存修改' : '🎯 確定新增紀錄'}
               </button>
             </div>
           </div>
+
+          {/* 新增的系統設定區塊 */}
+          <div className="glass-card rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 border-b-4 border-slate-300 shadow-xl bg-white/40">
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-3xl shadow-inner shrink-0">⚙️</div>
+              <div className="flex-1 text-center md:text-left">
+                <h3 className="text-2xl font-black text-slate-950 mb-2">雲端資料庫管理</h3>
+                <p className="text-slate-500 font-bold leading-relaxed">您可以直接進入 Google Sheets 修改動作清單、分類或預設數值，修改後網頁將自動同步。</p>
+              </div>
+              <a 
+                href={GOOGLE_SHEET_URL} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="px-8 py-5 bg-white border-2 border-slate-200 hover:border-indigo-500 hover:text-indigo-700 rounded-2xl font-black text-slate-700 shadow-md transition-all flex items-center gap-3 active:scale-95 shrink-0"
+              >
+                <span>📊 開啟後端 Excel</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </a>
+            </div>
+          </div>
         </div>
 
-        {/* 歷史紀錄區域 */}
         <div className={`${activeTab === 'history' ? 'block' : 'hidden md:block'} w-full space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
           <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6 px-1 md:px-4">
             <h2 className="text-4xl font-black text-slate-950">歷史復健日誌</h2>
@@ -522,12 +560,10 @@ const App: React.FC = () => {
           <div className="space-y-10">
             {groupedLogs.map(group => (
               <div key={group.date} className="glass-card rounded-[3rem] overflow-hidden border-2 border-white shadow-2xl bg-white/80">
-                {/* 日期標頭 (優化排版) */}
                 <div className="bg-indigo-50/50 p-6 md:p-8 border-b-2 border-indigo-100 relative overflow-hidden">
                   <div className="absolute left-0 top-0 bottom-0 w-4 bg-indigo-600"></div>
                   <div className="flex flex-col gap-6">
                     <div className="flex items-center justify-between w-full gap-4">
-                      {/* 日期資訊 */}
                       <div className="flex items-center gap-4 min-w-0">
                         <div className="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center text-2xl shadow-lg shrink-0">📅</div>
                         <div className="flex flex-col min-w-0">
@@ -536,7 +572,6 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       
-                      {/* 操作按鈕 */}
                       <div className="flex gap-2 shrink-0">
                         <button 
                           type="button"
@@ -557,7 +592,6 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     
-                    {/* 今日狀況區塊 (改為可編輯) */}
                     <div className="w-full p-4 bg-white/60 border border-indigo-100 rounded-2xl shadow-inner group/status">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">🧠 今日身體狀況 (點擊即可修改)</span>
@@ -573,13 +607,11 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 行動端列表 (Mobile 優化) */}
                 <div className="block md:hidden">
                   <div className="divide-y-2 divide-indigo-50/50">
                     {group.logs.map(log => (
                       <div key={log.id} className="p-6 hover:bg-white transition-colors">
                         <div className="flex justify-between items-center gap-4">
-                          {/* 左側資訊區 */}
                           <div className="flex-1 min-w-0">
                             <h3 className="text-2xl font-black text-slate-950 truncate leading-tight mb-3">{log.exerciseName}</h3>
                             <div className="flex flex-wrap gap-2 items-center">
@@ -591,26 +623,22 @@ const App: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          
-                          {/* 右側數值區 */}
                           <div className="text-right shrink-0">
                             <span className="text-3xl font-black text-indigo-950 bg-indigo-50 px-4 py-2 rounded-2xl inline-block border-2 border-indigo-100 shadow-sm whitespace-nowrap">
                               {log.value}
                             </span>
                             <span className="block text-sm font-black text-slate-500 mt-2 uppercase tracking-widest">
-                              {log.sets > 1 ? `× ${log.sets} 組` : log.unit}
+                              {log.sets > 0 ? (log.sets > 1 ? `× ${log.sets} 組` : '1 組') : log.unit}
                             </span>
                           </div>
                         </div>
 
-                        {/* 備註 (如有) */}
                         {log.notes && (
                           <p className="mt-4 text-lg text-slate-600 font-medium italic bg-slate-50 p-4 rounded-2xl border border-slate-100 leading-relaxed">
                             “{log.notes}”
                           </p>
                         )}
 
-                        {/* 底部按鈕區 */}
                         <div className="flex justify-end gap-8 mt-4 pt-2">
                           <button onClick={() => startEditing(log)} className="text-lg font-black text-indigo-700 py-1 flex items-center gap-1 active:opacity-50">
                             ✏️ <span className="underline underline-offset-4">修改</span>
@@ -629,7 +657,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 桌面端列表 */}
                 <div className="hidden md:block overflow-x-auto">
                   {group.logs.length > 0 ? (
                     <table className="w-full text-left min-w-[800px]">
@@ -646,7 +673,9 @@ const App: React.FC = () => {
                             </td>
                             <td className="px-10 py-10 text-center">
                               <span className="text-4xl font-black text-indigo-900 bg-white px-7 py-4 rounded-[2rem] border-2 border-indigo-50 inline-block shadow-lg whitespace-nowrap">{log.value}</span>
-                              <span className="block text-lg font-black text-slate-400 mt-3 uppercase tracking-widest">{log.sets > 1 ? `× ${log.sets} 組` : log.unit}</span>
+                              <span className="block text-lg font-black text-slate-400 mt-3 uppercase tracking-widest">
+                                {log.sets > 0 ? (log.sets > 1 ? `× ${log.sets} 組` : '1 組') : log.unit}
+                              </span>
                             </td>
                             <td className="px-10 py-10 text-right">
                               <div className="flex justify-end gap-4">

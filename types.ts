@@ -17,6 +17,7 @@ export interface ExerciseDefinition {
   isUnilateral: boolean;
   mode: InputMode;
   defaultUnit?: string;
+  defaultQuantity?: string; // 新增：預設數量
 }
 
 export interface ExerciseLog {
