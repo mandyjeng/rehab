@@ -3,6 +3,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { EXERCISES_API_URL, CATEGORIES } from './constants';
 import { ExerciseLog, FormData, BodyPart, ExerciseDefinition } from './types';
 
+interface ModalConfig {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: (() => void) | null;
+  type: 'confirm' | 'alert';
+}
+
 const App: React.FC = () => {
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([]);
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
@@ -12,63 +20,81 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoadingExercises, setIsLoadingExercises] = useState(true);
+  const [isWritingId, setIsWritingId] = useState<string | null>(null);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [copiedDayId, setCopiedDayId] = useState<string | null>(null); 
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [modal, setModal] = useState<ModalConfig>({
+    isOpen: false, title: '', message: '', onConfirm: null, type: 'alert'
+  });
 
   const [formData, setFormData] = useState<FormData>({
     date: new Date().toISOString().split('T')[0],
-    exerciseId: '', 
-    side: '記錄雙側',
-    sets: 1, 
-    weight: '0', 
-    reps: '10',
-    time: '',
-    resistance: '',
-    slope: '',
-    speed: '',
-    notes: ''
+    exerciseId: '', side: '記錄雙側', sets: 1, weight: '0', reps: '10',
+    time: '', resistance: '', slope: '', speed: '', notes: ''
   });
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 您的 Google Sheet 網址
   const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1TBuSUnuO3HTtG-9ZHDmDrlHGSNlEip3WUntbtWQcre8/edit?gid=0#gid=0';
 
-  // 從 Google Sheets 獲取動作清單
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setModal({ isOpen: true, title, message, onConfirm, type: 'confirm' });
+  };
+
+  const showAlert = (title: string, message: string) => {
+    setModal({ isOpen: true, title, message, onConfirm: null, type: 'alert' });
+  };
+
+  const formatDateString = (dateStr: string) => {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const weekDays = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+    return `${year}-${month}-${day} (${weekDays[d.getDay()]})`;
+  };
+
+  useEffect(() => {
+    const MAIN_LOGS_KEY = 'rehab_logs_stable';
+    const MAIN_STATUS_KEY = 'rehab_statuses_stable';
+    const oldKeys = ['rehab_logs_v16', 'rehab_logs_v15', 'rehab_logs'];
+    let migratedLogs: ExerciseLog[] = [];
+    let migratedStatuses: Record<string, string> = {};
+    const stableLogs = localStorage.getItem(MAIN_LOGS_KEY);
+    const stableStatus = localStorage.getItem(MAIN_STATUS_KEY);
+    if (stableLogs) migratedLogs = JSON.parse(stableLogs);
+    if (stableStatus) migratedStatuses = JSON.parse(stableStatus);
+    if (migratedLogs.length === 0) {
+      for (const key of oldKeys) {
+        const data = localStorage.getItem(key);
+        if (data) {
+          const parsed = JSON.parse(data);
+          if (parsed.length > 0) { migratedLogs = parsed; break; }
+        }
+      }
+    }
+    setLogs(migratedLogs);
+    setDailyStatuses(migratedStatuses);
+  }, []);
+
+  useEffect(() => { localStorage.setItem('rehab_logs_stable', JSON.stringify(logs)); }, [logs]);
+  useEffect(() => { localStorage.setItem('rehab_statuses_stable', JSON.stringify(dailyStatuses)); }, [dailyStatuses]);
+
   useEffect(() => {
     const fetchExercises = async () => {
       try {
         setIsLoadingExercises(true);
-        if (EXERCISES_API_URL.includes('YOUR_DEPLOYED_GAS_ID')) {
-          console.warn("尚未設定 GAS API URL");
-          setIsLoadingExercises(false);
-          return;
-        }
         const response = await fetch(EXERCISES_API_URL);
         const data = await response.json();
         setExercises(data);
-      } catch (error) {
-        console.error("無法從 Google Sheets 載入動作清單:", error);
-      } finally {
-        setIsLoadingExercises(false);
-      }
+      } catch (error) { console.error("無法載入動作:", error); }
+      finally { setIsLoadingExercises(false); }
     };
     fetchExercises();
   }, []);
-
-  useEffect(() => {
-    const savedLogs = localStorage.getItem('rehab_logs_v16');
-    const savedStatuses = localStorage.getItem('rehab_statuses_v16');
-    if (savedLogs) setLogs(JSON.parse(savedLogs));
-    if (savedStatuses) setDailyStatuses(JSON.parse(savedStatuses));
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('rehab_logs_v16', JSON.stringify(logs));
-  }, [logs]);
-
-  useEffect(() => {
-    localStorage.setItem('rehab_statuses_v16', JSON.stringify(dailyStatuses));
-  }, [dailyStatuses]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -80,618 +106,467 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const currentDailyStatus = dailyStatuses[formData.date] || '';
-
   const handleStatusChange = (val: string) => {
     setDailyStatuses(prev => ({ ...prev, [formData.date]: val }));
   };
 
-  const currentExercise = useMemo(() => 
-    exercises.find(e => e.id === formData.exerciseId) || null
-  , [formData.exerciseId, exercises]);
-
+  const currentExercise = useMemo(() => exercises.find(e => e.id === formData.exerciseId) || null, [formData.exerciseId, exercises]);
   const filteredExercises = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    if (!term) return exercises;
-    return exercises.filter(ex => 
-      ex.name.toLowerCase().includes(term) || 
-      ex.category.toLowerCase().includes(term)
-    );
+    return term ? exercises.filter(ex => ex.name.toLowerCase().includes(term) || ex.category.toLowerCase().includes(term)) : exercises;
   }, [searchTerm, exercises]);
+  const filteredCategories = useMemo(() => CATEGORIES.filter(cat => filteredExercises.some(ex => ex.category === cat)), [filteredExercises]);
 
-  const filteredCategories = useMemo(() => {
-    return CATEGORIES.filter(cat => 
-      filteredExercises.some(ex => ex.category === cat)
-    );
-  }, [filteredExercises]);
-
-  // 當選擇動作時，根據 Sheets 定義自動填充
   useEffect(() => {
     if (!editingId && currentExercise) {
-      let defaultVal = currentExercise.defaultQuantity || '';
-      
-      if (!defaultVal) {
-        if (currentExercise.name === '打羽球') defaultVal = '5';
-        else if (currentExercise.category === BodyPart.BADMINTON) defaultVal = '3';
-        else if (currentExercise.mode === 'TIME_ONLY') defaultVal = '30';
-        else if (currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') defaultVal = '15';
-        else defaultVal = '10';
-      }
-
+      let dVal = currentExercise.defaultQuantity || '10';
       setFormData(prev => ({
         ...prev,
         side: currentExercise.isUnilateral ? '左' : 'N/A' as any,
         weight: currentExercise.category === BodyPart.LANDMINE ? '20' : '0',
-        reps: (currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'STRENGTH') ? defaultVal : '',
-        time: (currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') ? defaultVal : '',
-        resistance: '',
-        slope: '',
-        speed: '',
-        sets: currentExercise.name === '打羽球' ? 0 : 1 // 羽球初始組數為 0
+        reps: (currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'STRENGTH') ? dVal : '',
+        time: (currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') ? dVal : '',
+        sets: 1
       }));
     }
   }, [currentExercise, editingId]);
 
   const handleSaveLog = () => {
     if (!currentExercise) {
-      if (currentDailyStatus.trim()) {
-        alert("今日身體狀況已更新完成！✅");
-        setActiveTab('history');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-      alert("請先選擇一個復健動作喔！");
-      return;
+      if (dailyStatuses[formData.date]?.trim()) { showAlert("更新完成", "身體狀況已儲存！✅"); setActiveTab('history'); return; }
+      showAlert("提示", "請先選擇復健動作！"); return;
     }
-
     setIsProcessing(true);
-    let finalValue = "";
-    let finalUnit = "";
-    let finalSets = formData.sets;
-
-    if (currentExercise.name === '打羽球') {
-      finalSets = 0;
-    }
-
+    let fVal = "";
+    let isDuration = currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL';
+    
     switch(currentExercise.mode) {
-      case 'STRENGTH':
-        const wUnit = currentExercise.name === '打羽球' ? '分 ' : 'kg ';
-        const rUnit = currentExercise.defaultUnit || '下';
-        finalValue = `${formData.weight !== '' ? formData.weight + wUnit : '0' + wUnit}${formData.reps}${rUnit}`;
-        finalUnit = currentExercise.name === '打羽球' ? (currentExercise.defaultUnit || '場') : '組';
-        break;
-      case 'REPS_ONLY':
-        const unitLabel = currentExercise.defaultUnit || '下';
-        finalValue = `${formData.reps}${unitLabel}`;
-        finalUnit = '組';
-        break;
-      case 'TIME_ONLY':
-        finalValue = `${formData.time}秒`;
-        finalUnit = '組';
-        break;
-      case 'CYCLING':
-        finalValue = `阻力${formData.resistance || '0'}`;
-        finalUnit = `${formData.time || '0'}分鐘`;
-        break;
-      case 'TREADMILL':
-        finalValue = `坡度${formData.slope || '0'} 速度${formData.speed || '0'}`;
-        finalUnit = `${formData.time || '0'}分鐘`;
-        break;
-      case 'RELAX':
-        finalValue = "已完成";
-        finalUnit = "次";
-        break;
+      case 'STRENGTH': fVal = `${formData.weight}kg ${formData.reps}${currentExercise.defaultUnit || '下'}`; break;
+      case 'REPS_ONLY': fVal = `${formData.reps}${currentExercise.defaultUnit || '下'}`; break;
+      case 'TIME_ONLY': fVal = `${formData.time}秒`; break;
+      case 'CYCLING': fVal = `阻力${formData.resistance}`; break;
+      case 'TREADMILL': fVal = `坡度${formData.slope} 速度${formData.speed}`; break;
+      case 'RELAX': fVal = "已完成"; break;
     }
 
-    const sideToSave = currentExercise.isUnilateral 
-      ? (formData.side === '記錄雙側' ? '雙側' : formData.side as any) 
-      : 'N/A';
-
-    const logData = {
-      date: formData.date,
-      exerciseName: currentExercise.name,
-      category: currentExercise.category,
-      side: sideToSave,
-      sets: finalSets,
-      value: finalValue,
-      unit: finalUnit,
+    const logData: ExerciseLog = {
+      id: editingId || crypto.randomUUID(),
+      date: formData.date, exerciseName: currentExercise.name, category: currentExercise.category,
+      side: currentExercise.isUnilateral ? (formData.side === '記錄雙側' ? '雙側' : formData.side as any) : 'N/A',
+      sets: isDuration ? (parseInt(formData.time) || 0) : formData.sets, 
+      value: fVal, 
+      unit: isDuration ? "分鐘" : "組", 
       notes: formData.notes
     };
 
-    if (editingId) {
-      setLogs(prev => prev.map(log => log.id === editingId ? { ...log, ...logData } : log));
-      setEditingId(null);
-      setActiveTab('history');
-    } else {
-      const newLog: ExerciseLog = {
-        id: crypto.randomUUID(),
-        ...logData
-      };
-      setLogs(prev => [newLog, ...prev]);
-      setActiveTab('history');
-    }
+    if (editingId) setLogs(prev => prev.map(l => l.id === editingId ? logData : l));
+    else setLogs(prev => [logData, ...prev]);
     
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setEditingId(null); setActiveTab('history'); window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => { setFormData(prev => ({ ...prev, exerciseId: '', notes: '' })); setIsProcessing(false); }, 200);
+  };
 
-    setTimeout(() => {
-      setFormData(prev => ({ 
-        ...prev, 
-        exerciseId: '', 
-        weight: '0', 
-        sets: 1,
-        notes: '' 
-      }));
-      setIsProcessing(false);
-    }, 200);
+  const handleDeleteAll = () => {
+    showConfirm('全部刪除', '確定要清空所有紀錄嗎？此動作無法復原。', () => {
+      setLogs([]);
+      setDailyStatuses({});
+      showAlert('已清空', '所有紀錄已刪除！');
+    });
+  };
+
+  const handleDeleteLog = (id: string, name: string) => {
+    showConfirm('確認刪除', `確定要刪除動作「${name}」的紀錄嗎？`, () => {
+      setLogs(prev => prev.filter(l => l.id !== id));
+    });
+  };
+
+  const handleDeleteDay = (date: string) => {
+    showConfirm('清空當日', `確定要清空 ${formatDateString(date)} 的所有紀錄嗎？`, () => {
+      setLogs(prev => prev.filter(l => l.date !== date));
+      setDailyStatuses(prev => {
+        const next = { ...prev };
+        delete next[date];
+        return next;
+      });
+      showAlert('已清空', '當日紀錄已刪除！');
+    });
   };
 
   const startEditing = (log: ExerciseLog) => {
-    const exercise = exercises.find(ex => ex.name === log.exerciseName);
-    if (!exercise) return;
-    let weight = '', reps = '', time = '', resistance = '', slope = '', speed = '';
-    if (exercise.mode === 'STRENGTH') {
-      const wUnit = exercise.name === '打羽球' ? '分' : 'kg';
-      const rUnit = exercise.defaultUnit || '下';
-      const regex = new RegExp(`(\\d+(?:\\.\\d+)?)${wUnit}\\s+(\\d+)${rUnit}`);
-      const match = log.value.match(regex);
-      if (match) { weight = match[1]; reps = match[2]; } 
-      else { reps = log.value.replace(rUnit, ''); }
-    } else if (exercise.mode === 'REPS_ONLY') { 
-      const rUnit = exercise.defaultUnit || '下';
-      reps = log.value.replace(rUnit, ''); 
-    }
-    else if (exercise.mode === 'TIME_ONLY') { time = log.value.replace('秒', ''); }
-    else if (exercise.mode === 'CYCLING') { resistance = log.value.replace('阻力', ''); time = log.unit.replace('分鐘', ''); }
-    else if (exercise.mode === 'TREADMILL') {
-      const match = log.value.match(/坡度([\d.]+)\s+速度([\d.]+)/);
-      if (match) { slope = match[1]; speed = match[2]; }
-      time = log.unit.replace('分鐘', '');
-    }
+    const ex = exercises.find(e => e.name === log.exerciseName);
+    if (!ex) return;
     setEditingId(log.id);
-    setFormData({
-      date: log.date, exerciseId: exercise.id,
-      side: log.side === '雙側' ? '記錄雙側' : log.side as any,
-      sets: log.sets, weight, reps, time, resistance, slope, speed, notes: log.notes
+
+    // 針對特殊模式還原特定欄位值
+    let restoredValues: any = {};
+    if (ex.mode === 'CYCLING') {
+      const m = log.value.match(/阻力(\d+)/);
+      if (m) restoredValues.resistance = m[1];
+    } else if (ex.mode === 'TREADMILL') {
+      const m = log.value.match(/坡度(\d+) 速度(\d+)/);
+      if (m) { restoredValues.slope = m[1]; restoredValues.speed = m[2]; }
+    } else if (ex.mode === 'STRENGTH') {
+      const m = log.value.match(/(\d+)kg\s+(\d+)/);
+      if (m) { restoredValues.weight = m[1]; restoredValues.reps = m[2]; }
+    } else if (ex.mode === 'REPS_ONLY') {
+      const m = log.value.match(/(\d+)/);
+      if (m) restoredValues.reps = m[1];
+    }
+
+    setFormData({ 
+      ...formData, 
+      ...restoredValues,
+      date: log.date, 
+      exerciseId: ex.id, 
+      sets: log.unit === '分鐘' ? 1 : log.sets, 
+      time: log.unit === '分鐘' ? log.sets.toString() : (ex.mode === 'TIME_ONLY' ? log.value.replace('秒', '') : formData.time),
+      notes: log.notes, 
+      side: log.side === '雙側' ? '記錄雙側' : log.side as any 
     });
-    setSearchTerm('');
-    setActiveTab('form');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setActiveTab('form'); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const groupedLogs = useMemo(() => {
     const groups: Record<string, ExerciseLog[]> = {};
-    logs.forEach(log => {
-      if (!groups[log.date]) groups[log.date] = [];
-      groups[log.date].push(log);
-    });
-    
-    const statusDates = Object.keys(dailyStatuses).filter(d => {
-      const status = dailyStatuses[d];
-      return typeof status === 'string' && status.trim() !== '';
-    });
-    
-    const allDates = new Set([...Object.keys(groups), ...statusDates]);
-
-    return Array.from(allDates).sort((a, b) => b.localeCompare(a)).map(date => ({
-      date, 
-      logs: groups[date] || [], 
-      status: dailyStatuses[date] || ''
-    }));
+    logs.forEach(l => { if (!groups[l.date]) groups[l.date] = []; groups[l.date].push(l); });
+    const allDates = new Set([...Object.keys(groups), ...Object.keys(dailyStatuses).filter(d => dailyStatuses[d].trim() || (groups[d] && groups[d].length > 0))]);
+    return Array.from(allDates).sort((a, b) => b.localeCompare(a)).map(date => ({ date, logs: groups[date] || [], status: dailyStatuses[date] || '' }));
   }, [logs, dailyStatuses]);
 
-  const handleDeleteAll = () => {
-    if (window.confirm('⚠️ 確定要刪除「所有」歷史紀錄嗎？')) {
-      setLogs([]); setDailyStatuses({}); localStorage.clear();
-    }
-  };
-
-  const handleDeleteDay = (date: string) => {
-    if (window.confirm(`⚠️ 確定要刪除 ${date} 的所有紀錄（包含動作與身體狀況）嗎？`)) {
-      setLogs(prev => prev.filter(log => log.date !== date));
-      setDailyStatuses(prev => {
-        const next = { ...prev };
-        delete next[date];
-        return { ...next };
-      });
-    }
-  };
-
-  const handleCopyToClipboard = (targetDate?: string) => {
-    if (groupedLogs.length === 0) {
-      alert(`目前沒有紀錄可以複製喔！`);
-      return;
-    }
-
-    const dataToCopy = targetDate 
-      ? groupedLogs.filter(g => g.date === targetDate)
-      : groupedLogs;
-
-    const allText = dataToCopy.map(group => {
-      const parts: string[] = [];
-      if (group.status) parts.push(group.status.trim());
-      
-      group.logs.forEach(l => {
-        let entry = l.exerciseName;
-        if (l.side !== 'N/A' && l.side !== '雙側') {
-          entry += ` ${l.side}`;
-        }
-        entry += ` ${l.value.trim()}`;
-        if (l.sets > 0) {
-          entry += `×${l.sets}組`;
-        }
-        if (l.notes) {
-          entry += `(${l.notes.trim()})`;
-        }
-        parts.push(entry);
-      });
-      
-      return `${group.date},"${parts.join('｜')}"`;
-    }).join('\n');
-
-    navigator.clipboard.writeText(allText).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      if (targetDate) alert(`${targetDate} 的紀錄已複製！`);
+  const formatGroupToString = (group: {date: string, logs: ExerciseLog[], status: string}) => {
+    const parts: string[] = [];
+    if (group.status) parts.push(`[${group.status.trim()}]`);
+    group.logs.forEach(l => {
+      let entry = `${l.exerciseName}${l.side !== 'N/A' ? `【${l.side}】` : ''}: ${l.value.trim()}`;
+      if (l.sets > 0) {
+        if (l.unit === '分鐘') entry += ` ${l.sets}分鐘`;
+        else entry += ` x${l.sets}組`;
+      }
+      if (l.notes) entry += ` (${l.notes.trim()})`;
+      parts.push(entry);
     });
+    return parts.join('｜');
+  };
+
+  const handleCopyDay = (date: string) => {
+    const group = groupedLogs.find(g => g.date === date);
+    if (!group) return;
+    const content = formatGroupToString(group);
+    const fullText = `${date},"${content}"`;
+    navigator.clipboard.writeText(fullText).then(() => {
+      setCopiedDayId(date);
+      setTimeout(() => setCopiedDayId(null), 2000);
+    });
+  };
+
+  const handleSyncAllToSheet = async () => {
+    showConfirm('雲端同步', '確認從雲端「復健記錄」下載並還原所有紀錄？', async () => {
+      setIsSyncingAll(true);
+      try {
+        const response = await fetch(`${EXERCISES_API_URL}?type=history`);
+        const cloudData = await response.json();
+        const newLogs: ExerciseLog[] = [];
+        const newStatuses: Record<string, string> = {};
+        cloudData.forEach((item: any) => {
+          const date = item.date.toString().split('T')[0];
+          let content = (item.content as string).trim().replace(/^"|"$/g, '');
+          if (content.startsWith('[')) {
+            const endIdx = content.indexOf(']');
+            newStatuses[date] = content.substring(1, endIdx);
+            content = content.substring(endIdx + 1).replace(/^｜/, '');
+          }
+          content.split('｜').filter(s => s.trim()).forEach(s => {
+            const match = s.match(/^(.*?)(?:【(左|右|雙側)】)?:\s*(.*?)(?:\s+x(\d+)組|\s+(\d+)分鐘)?(?:\s+\((.*?)\))?\s*"?$/);
+            if (match) {
+              const setsVal = match[4] ? parseInt(match[4]) : (match[5] ? parseInt(match[5]) : 0);
+              const unitVal = match[5] ? "分鐘" : "組";
+              newLogs.push({
+                id: crypto.randomUUID(), date, exerciseName: match[1].trim(), side: (match[2] || 'N/A') as any,
+                value: match[3].trim(), sets: setsVal, notes: match[6] || "",
+                category: exercises.find(e => e.name === match[1].trim())?.category || "其他", unit: unitVal
+              });
+            }
+          });
+        });
+        setLogs(newLogs); setDailyStatuses(newStatuses);
+        showAlert("同步成功", "紀錄已還原！✅");
+      } catch (e) { showAlert("同步失敗", "無法連結雲端。"); }
+      finally { setIsSyncingAll(false); }
+    });
+  };
+
+  const handleWriteToSheet = async (targetDate: string) => {
+    const group = groupedLogs.find(g => g.date === targetDate);
+    if (!group) return;
+    const cleanDate = targetDate.trim().split(' ')[0];
+
+    showConfirm('上傳雲端', `將 ${cleanDate} 紀錄傳送到雲端？\n(若已有資料將自動覆蓋該日紀錄)`, async () => {
+      setIsWritingId(targetDate);
+      try {
+        const content = formatGroupToString(group);
+        await fetch(EXERCISES_API_URL, { 
+          method: 'POST', 
+          mode: 'no-cors', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: cleanDate, content: content }) 
+        });
+        showAlert("發送完成", "資料已發送！若雲端已有同日資料應已自動更新。✅");
+      } catch (e) { showAlert("上傳失敗", "連線異常，請檢查網路。"); }
+      finally { setIsWritingId(null); }
+    });
+  };
+
+  const handleCopyToClipboard = () => {
+    const text = groupedLogs.map(g => `${g.date},"${formatGroupToString(g)}"`).join('\n');
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 
   return (
     <div className="pb-32 px-4 max-w-7xl mx-auto flex flex-col items-center font-['Noto_Sans_TC'] select-none">
-      <header className="py-8 md:py-12 text-center w-full transition-all flex flex-col items-center relative">
-        <div className="inline-block p-1 md:p-4 rounded-[2.5rem] md:rounded-[4rem] bg-white shadow-2xl mb-6 md:mb-8 border-4 border-indigo-600 relative overflow-hidden ring-8 ring-indigo-50">
-          <img 
-            src="https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2069&auto=format&fit=crop" 
-            alt="Workout Illustration" 
-            className="w-24 h-24 md:w-48 md:h-48 object-cover rounded-[2rem]"
-          />
+      {modal.isOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+          <div className="glass-card w-full max-w-md rounded-[2.5rem] p-8 md:p-10 shadow-2xl border-2 border-indigo-50">
+            <h3 className="text-2xl md:text-3xl font-black text-slate-950 mb-4">{modal.title}</h3>
+            <p className="text-lg md:text-xl text-slate-600 font-bold leading-relaxed mb-10 whitespace-pre-wrap">{modal.message}</p>
+            <div className="flex gap-4">
+              {modal.type === 'confirm' && <button onClick={() => setModal({ ...modal, isOpen: false })} className="flex-1 py-5 rounded-2xl font-black text-slate-500 bg-slate-100 text-lg">取消</button>}
+              <button onClick={() => { modal.onConfirm?.(); setModal({ ...modal, isOpen: false }); }} className={`flex-1 py-5 rounded-2xl font-black text-white text-lg ${modal.type === 'confirm' ? 'bg-indigo-700' : 'bg-slate-950'}`}>確定</button>
+            </div>
+          </div>
         </div>
-        <h1 className="text-4xl md:text-6xl font-black text-slate-950 tracking-tight leading-tight">
-          RehabFlow <span className="text-indigo-700">Smart</span>
-        </h1>
-        <p className="mt-2 text-slate-900 font-black tracking-widest text-base md:text-lg uppercase">mm復健日記</p>
+      )}
+
+      <header className="py-8 md:py-12 text-center w-full transition-all flex flex-col items-center">
+        <div className="inline-block p-1 md:p-4 rounded-[2.5rem] md:rounded-[4rem] bg-white shadow-2xl mb-6 md:mb-8 border-4 border-indigo-600 ring-8 ring-indigo-50 overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2069&auto=format&fit=crop" alt="Workout" className="w-24 h-24 md:w-48 md:h-48 object-cover rounded-[2rem]"/>
+        </div>
+        <h1 className="text-4xl md:text-6xl font-black text-slate-950">RehabFlow <span className="text-indigo-700">Smart</span></h1>
+        <p className="mt-2 text-slate-900 font-black tracking-widest uppercase">mm復健日記</p>
       </header>
 
       <div className="sticky top-2 z-50 bg-white/95 backdrop-blur-lg p-2 rounded-full shadow-2xl border border-indigo-100 mb-8 flex w-full max-sm mx-auto md:hidden ring-4 ring-indigo-50">
-        <button onClick={() => { setActiveTab('form'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-4 rounded-full font-black text-lg transition-all ${activeTab === 'form' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-600'}`}>⚡ 紀錄動作</button>
-        <button onClick={() => { setActiveTab('history'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex-1 py-4 rounded-full font-black text-lg transition-all ${activeTab === 'history' ? 'bg-indigo-700 text-white shadow-md scale-105' : 'text-slate-600'}`}>📅 歷史紀錄</button>
+        <button onClick={() => { setActiveTab('form'); window.scrollTo({ top: 0 }); }} className={`flex-1 py-4 rounded-full font-black text-lg transition-all ${activeTab === 'form' ? 'bg-indigo-700 text-white' : 'text-slate-600'}`}>⚡ 紀錄動作</button>
+        <button onClick={() => { setActiveTab('history'); window.scrollTo({ top: 0 }); }} className={`flex-1 py-4 rounded-full font-black text-lg transition-all ${activeTab === 'history' ? 'bg-indigo-700 text-white' : 'text-slate-600'}`}>📅 歷史紀錄</button>
       </div>
 
-      <div className="flex flex-col gap-8 md:gap-10 w-full max-w-4xl">
-        <div className={`${activeTab === 'form' ? 'block' : 'hidden md:block'} space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-          <div className="glass-card rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 border-b-4 md:border-b-8 border-emerald-600 shadow-xl shadow-emerald-100/40">
-            <div className="flex flex-col md:flex-row gap-8 md:gap-8 items-start">
+      <div className="flex flex-col gap-8 w-full max-w-4xl">
+        <div className={`${activeTab === 'form' ? 'block' : 'hidden md:block'} space-y-8`}>
+          <div className="glass-card rounded-[2.5rem] p-6 md:p-10 border-b-4 border-emerald-600 shadow-xl">
+            <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="w-full md:w-1/3">
-                <label className="text-lg md:text-base font-black text-emerald-900 mb-3 block uppercase tracking-widest">📅 選擇日期</label>
-                <input type="date" className="w-full px-5 py-5 rounded-2xl md:rounded-3xl bg-white border-2 border-emerald-100 focus:border-emerald-500 outline-none font-black text-slate-950 shadow-sm text-xl md:text-lg" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                <label className="text-lg font-black text-emerald-900 mb-3 block uppercase tracking-widest">📅 日期</label>
+                <input type="date" className="w-full px-5 py-5 rounded-2xl bg-white border-2 border-emerald-100 font-black text-slate-950 shadow-sm text-xl" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
               </div>
               <div className="w-full md:w-2/3">
-                <label className="text-lg md:text-base font-black text-emerald-900 mb-3 block uppercase tracking-widest">🧠 今日身體狀況</label>
-                <textarea placeholder="今天的體感..." className="w-full px-5 py-5 rounded-2xl md:rounded-3xl bg-white border-2 border-emerald-100 focus:border-emerald-500 outline-none font-bold text-slate-800 shadow-sm h-24 md:h-24 resize-none text-xl md:text-lg leading-relaxed" value={currentDailyStatus} onChange={e => handleStatusChange(e.target.value)} />
+                <label className="text-lg font-black text-emerald-900 mb-3 block uppercase tracking-widest">🧠 今日身體狀況</label>
+                <textarea placeholder="今天的體感..." className="w-full px-5 py-5 rounded-2xl bg-white border-2 border-emerald-100 font-bold text-slate-800 shadow-sm h-24 resize-none text-xl" value={dailyStatuses[formData.date] || ''} onChange={e => handleStatusChange(e.target.value)} />
               </div>
             </div>
           </div>
 
-          <div className={`glass-card rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 border-b-4 md:border-b-8 transition-all duration-300 ${editingId ? 'border-orange-500 shadow-orange-100 ring-4 ring-orange-50' : 'border-indigo-800 shadow-indigo-300/40'}`}>
-            <h2 className="text-3xl md:text-3xl font-black text-slate-950 mb-8 flex items-center">
-              <span className={`w-14 h-14 flex items-center justify-center rounded-2xl mr-4 text-2xl shadow-lg text-white transition-colors ${editingId ? 'bg-orange-500' : 'bg-indigo-800'}`}>{editingId ? '✏️' : '⚡'}</span>
+          <div className={`glass-card rounded-[2.5rem] p-6 md:p-10 border-b-4 transition-all duration-300 ${editingId ? 'border-orange-500 ring-4 ring-orange-50' : 'border-indigo-800 shadow-indigo-300/40'}`}>
+            <h2 className="text-3xl font-black text-slate-950 mb-8 flex items-center">
+              <span className={`w-14 h-14 flex items-center justify-center rounded-2xl mr-4 text-2xl text-white ${editingId ? 'bg-orange-500' : 'bg-indigo-800'}`}>{editingId ? '✏️' : '⚡'}</span>
               {editingId ? '修改動作內容' : `新增紀錄`}
             </h2>
             <div className="space-y-8">
               <section className="space-y-4">
-                <label className="text-lg md:text-base font-black text-slate-950 mb-3 block tracking-tighter uppercase tracking-widest">🎯 選擇復健動作</label>
-                
+                <label className="text-lg font-black text-slate-950 mb-3 block uppercase tracking-widest">🎯 選擇復健動作</label>
                 <div className="relative" ref={dropdownRef}>
-                  <button 
-                    type="button"
-                    onClick={() => !isLoadingExercises && setIsDropdownOpen(!isDropdownOpen)}
-                    className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 focus:border-indigo-700 outline-none font-black text-slate-950 shadow-sm text-xl md:text-lg flex justify-between items-center transition-all hover:bg-slate-50 disabled:opacity-50"
-                    disabled={isLoadingExercises}
-                  >
-                    <span className={currentExercise ? "text-slate-950" : "text-slate-400"}>
-                      {isLoadingExercises ? '載入動作清單中...' : (currentExercise ? currentExercise.name : '── 請點擊選擇動作 ──')}
-                    </span>
-                    {isLoadingExercises ? (
-                      <div className="w-6 h-6 border-4 border-indigo-200 border-t-indigo-700 rounded-full animate-spin"></div>
-                    ) : (
-                      <svg className={`w-6 h-6 text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M19 9l-7 7-7-7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
+                  <button type="button" onClick={() => !isLoadingExercises && setIsDropdownOpen(!isDropdownOpen)} className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 font-black text-slate-950 shadow-sm text-xl flex justify-between items-center transition-all">
+                    <span className={currentExercise ? "text-slate-950" : "text-slate-400"}>{isLoadingExercises ? '載入中...' : (currentExercise ? currentExercise.name : '── 請選擇動作 ──')}</span>
+                    {isLoadingExercises ? <div className="w-6 h-6 border-4 border-indigo-200 border-t-indigo-700 rounded-full animate-spin"></div> : <svg className={`w-6 h-6 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeWidth="3" strokeLinecap="round"/></svg>}
                   </button>
-
                   {isDropdownOpen && (
-                    <div className="absolute z-[100] w-full mt-2 bg-white rounded-3xl shadow-2xl border-2 border-indigo-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                      <div className="p-4 border-b border-slate-100 sticky top-0 bg-white shadow-sm">
-                        <div className="relative">
-                          <input 
-                            type="text" 
-                            placeholder="搜尋動作關鍵字..." 
-                            className="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-indigo-500 focus:bg-white outline-none font-bold text-slate-800"
-                            value={searchTerm}
-                            autoFocus
-                            onChange={e => setSearchTerm(e.target.value)}
-                            onKeyDown={e => e.stopPropagation()}
-                          />
-                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-                        </div>
+                    <div className="absolute z-[100] w-full mt-2 bg-white rounded-3xl shadow-2xl border-2 border-indigo-50 overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 sticky top-0 bg-white">
+                        <input type="text" placeholder="搜尋動作..." className="w-full pl-6 pr-4 py-4 rounded-xl bg-slate-50 border-2 border-slate-100 font-bold" value={searchTerm} autoFocus onChange={e => setSearchTerm(e.target.value)} onKeyDown={e => e.stopPropagation()}/>
                       </div>
-
                       <div className="max-h-[400px] overflow-y-auto overscroll-contain">
-                        {filteredCategories.length > 0 ? (
-                          filteredCategories.map(cat => (
-                            <div key={cat} className="mb-2">
-                              <div className="px-5 py-3 bg-slate-100/50 text-slate-500 font-black text-sm uppercase tracking-widest sticky top-0 z-10">{cat}</div>
-                              {filteredExercises.filter(ex => ex.category === cat).map(ex => (
-                                <button
-                                  key={ex.id}
-                                  type="button"
-                                  className={`w-full text-left px-8 py-4 hover:bg-indigo-50 transition-colors font-bold text-lg md:text-base border-b border-slate-50 last:border-0 ${formData.exerciseId === ex.id ? 'bg-indigo-50 text-indigo-800 border-l-4 border-l-indigo-600' : 'text-slate-800'}`}
-                                  onClick={() => {
-                                    setFormData({ ...formData, exerciseId: ex.id });
-                                    setIsDropdownOpen(false);
-                                    setSearchTerm('');
-                                  }}
-                                >
-                                  {ex.name}
-                                </button>
-                              ))}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="py-12 text-center text-slate-400 font-bold italic">
-                            找不到符合的動作項目...
+                        {filteredCategories.map(cat => (
+                          <div key={cat}>
+                            <div className="px-5 py-3 bg-slate-100/50 text-slate-500 font-black text-sm uppercase sticky top-0 z-10">{cat}</div>
+                            {filteredExercises.filter(ex => ex.category === cat).map(ex => (
+                              <button key={ex.id} type="button" className={`w-full text-left px-8 py-4 hover:bg-indigo-50 font-bold text-lg border-b last:border-0 ${formData.exerciseId === ex.id ? 'bg-indigo-50 text-indigo-800' : 'text-slate-800'}`} onClick={() => { setFormData({ ...formData, exerciseId: ex.id }); setIsDropdownOpen(false); setSearchTerm(''); }}>{ex.name}</button>
+                            ))}
                           </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                   )}
                 </div>
               </section>
-              
-              <div className={`p-8 md:p-10 rounded-[2.5rem] border-2 space-y-8 transition-colors shadow-inner ${editingId ? 'bg-orange-50 border-orange-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
+
+              <div className={`p-8 rounded-[2.5rem] border-2 space-y-8 bg-indigo-50/50 border-indigo-100`}>
                 {currentExercise?.isUnilateral && (
                   <section>
-                    <label className="text-lg md:text-base font-black text-slate-950 mb-4 block uppercase tracking-widest text-center md:text-left">執行側邊</label>
+                    <label className="text-lg font-black text-slate-950 mb-4 block text-center">執行側邊</label>
                     <div className="grid grid-cols-3 gap-4">
-                      {['左', '右', '記錄雙側'].map(s => (
-                        <button key={s} type="button" onClick={() => setFormData({ ...formData, side: s as any })} className={`py-5 md:py-4 rounded-2xl md:rounded-2xl font-black text-lg md:text-base transition-all shadow-md ${formData.side === s ? (editingId ? 'bg-orange-500 text-white' : 'bg-indigo-700 text-white') : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>{s}</button>
-                      ))}
+                      {['左', '右', '記錄雙側'].map(s => <button key={s} type="button" onClick={() => setFormData({ ...formData, side: s as any })} className={`py-5 rounded-2xl font-black text-lg transition-all ${formData.side === s ? 'bg-indigo-700 text-white' : 'bg-white text-slate-700'}`}>{s}</button>)}
                     </div>
                   </section>
                 )}
-                
                 {currentExercise && (
                   <div className={`grid ${currentExercise.mode === 'TREADMILL' ? 'grid-cols-3' : 'grid-cols-2'} gap-6`}>
                     {(currentExercise.mode === 'STRENGTH' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') && (
                       <section>
-                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">
-                          {currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : (currentExercise.name === '打羽球' ? '跑動自評分' : '負重(kg)')}
-                        </label>
-                        <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={currentExercise.mode === 'CYCLING' ? formData.resistance : currentExercise.mode === 'TREADMILL' ? formData.slope : formData.weight} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'CYCLING' ? 'resistance' : (currentExercise.mode === 'TREADMILL' ? 'slope' : 'weight')]: e.target.value })} />
+                        <label className="text-lg font-black text-slate-950 mb-3 block text-center">{currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : '負重(kg)'}</label>
+                        <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl bg-white border-2 border-indigo-200 font-black text-slate-950 text-3xl text-center" value={currentExercise.mode === 'CYCLING' ? formData.resistance : currentExercise.mode === 'TREADMILL' ? formData.slope : formData.weight} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'CYCLING' ? 'resistance' : (currentExercise.mode === 'TREADMILL' ? 'slope' : 'weight')]: e.target.value })} />
                       </section>
                     )}
                     {currentExercise.mode === 'TREADMILL' && (
                       <section>
-                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">速度</label>
-                        <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={formData.speed} onChange={e => setFormData({ ...formData, speed: e.target.value })} />
+                        <label className="text-lg font-black text-slate-950 mb-3 block text-center">速度</label>
+                        <input type="text" inputMode="decimal" className="w-full px-3 py-6 rounded-2xl bg-white border-2 border-indigo-200 font-black text-slate-950 text-3xl text-center" value={formData.speed} onChange={e => setFormData({ ...formData, speed: e.target.value })} />
                       </section>
                     )}
                     {currentExercise.mode !== 'RELAX' && (
                       <section className={currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'TIME_ONLY' ? 'col-span-2' : ''}>
-                        <label className="text-lg md:text-base font-black text-slate-950 mb-3 block text-center md:text-left uppercase tracking-widest">
-                          {currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : (currentExercise.defaultUnit || '次數')}
-                        </label>
-                        <input type="text" inputMode="numeric" className="w-full px-3 py-6 rounded-2xl md:rounded-2xl bg-white border-2 border-indigo-200 focus:border-indigo-700 outline-none font-black text-slate-950 text-3xl md:text-2xl text-center shadow-inner" value={currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? formData.time : formData.reps} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? 'time' : 'reps']: e.target.value })} />
+                        <label className="text-lg font-black text-slate-950 mb-3 block text-center">{currentExercise.mode.includes('TIME') || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : '次數'}</label>
+                        <input type="text" inputMode="numeric" className="w-full px-3 py-6 rounded-2xl bg-white border-2 border-indigo-200 font-black text-slate-950 text-3xl text-center" value={currentExercise.mode.includes('TIME') || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? formData.time : formData.reps} onChange={e => setFormData({ ...formData, [currentExercise.mode.includes('TIME') || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? 'time' : 'reps']: e.target.value })} />
                       </section>
                     )}
                   </div>
                 )}
-
-                {currentExercise && currentExercise.mode !== 'RELAX' && currentExercise.mode !== 'CYCLING' && currentExercise.mode !== 'TREADMILL' && currentExercise.name !== '打羽球' && (
+                {currentExercise && !['RELAX', 'CYCLING', 'TREADMILL'].includes(currentExercise.mode) && (
                   <section>
-                    <label className="text-lg md:text-base font-black text-slate-950 mb-4 block text-center uppercase tracking-widest">總組數</label>
+                    <label className="text-lg font-black text-slate-950 mb-4 block text-center">總組數</label>
                     <div className="flex items-center justify-center space-x-12">
-                      <button type="button" onClick={() => setFormData({...formData, sets: Math.max(1, formData.sets - 1)})} className="w-16 h-16 bg-white rounded-2xl border-4 border-slate-100 text-slate-950 font-black text-3xl shadow-md">-</button>
+                      <button type="button" onClick={() => setFormData({...formData, sets: Math.max(1, formData.sets - 1)})} className="w-16 h-16 bg-white rounded-2xl border-4 text-slate-950 font-black text-3xl shadow-md">-</button>
                       <span className="text-5xl font-black text-indigo-800 w-16 text-center">{formData.sets}</span>
-                      <button type="button" onClick={() => setFormData({...formData, sets: formData.sets + 1})} className="w-16 h-16 bg-white rounded-2xl border-4 border-slate-100 text-slate-950 font-black text-3xl shadow-md">+</button>
+                      <button type="button" onClick={() => setFormData({...formData, sets: formData.sets + 1})} className="w-16 h-16 bg-white rounded-2xl border-4 text-slate-950 font-black text-3xl shadow-md">+</button>
                     </div>
                   </section>
-                )}
-                
-                {!currentExercise && !isLoadingExercises && (
-                  <div className="py-12 text-center text-slate-400 font-bold italic">
-                    請從上方選單選擇動作項目...
-                  </div>
-                )}
-                {isLoadingExercises && (
-                  <div className="py-12 text-center text-indigo-400 font-bold italic animate-pulse">
-                    正在獲取雲端動作清單...
-                  </div>
                 )}
               </div>
 
               <section>
-                <label className="text-lg md:text-base font-black text-slate-950 mb-3 block uppercase tracking-widest">📔 動作備註</label>
-                <textarea placeholder="今日體感..." className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 focus:border-indigo-700 outline-none h-24 font-bold text-slate-950 shadow-inner resize-none text-xl md:text-lg leading-relaxed" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
+                <label className="text-lg font-black text-slate-950 mb-3 block uppercase tracking-widest">📔 動作備註</label>
+                <textarea placeholder="體感備註..." className="w-full px-6 py-5 rounded-2xl bg-white border-2 border-slate-100 h-24 font-bold text-slate-950 shadow-inner resize-none text-xl" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
               </section>
 
-              <button type="button" onClick={handleSaveLog} disabled={isProcessing || isLoadingExercises} className={`w-full py-7 rounded-[2.5rem] font-black text-white shadow-2xl transition-all transform active:scale-95 text-2xl md:text-3xl ${isProcessing ? 'bg-slate-400' : editingId ? 'bg-gradient-to-br from-orange-500 to-rose-600' : 'bg-gradient-to-br from-indigo-800 via-indigo-900 to-slate-950'}`}>
+              <button type="button" onClick={handleSaveLog} disabled={isProcessing || isLoadingExercises} className={`w-full py-7 rounded-[2.5rem] font-black text-white shadow-2xl transition-all transform active:scale-95 text-2xl ${isProcessing ? 'bg-slate-400' : 'bg-gradient-to-br from-indigo-800 to-slate-950'}`}>
                 {isProcessing ? '處理中...' : editingId ? '💾 儲存修改' : '🎯 確定新增紀錄'}
               </button>
             </div>
           </div>
 
-          {/* 新增的系統設定區塊 */}
-          <div className="glass-card rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-10 border-b-4 border-slate-300 shadow-xl bg-white/40">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-3xl shadow-inner shrink-0">⚙️</div>
-              <div className="flex-1 text-center md:text-left">
-                <h3 className="text-2xl font-black text-slate-950 mb-2">雲端資料庫管理</h3>
-                <p className="text-slate-500 font-bold leading-relaxed">您可以直接進入 Google Sheets 修改動作清單、分類或預設數值，修改後網頁將自動同步。</p>
-              </div>
-              <a 
-                href={GOOGLE_SHEET_URL} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="px-8 py-5 bg-white border-2 border-slate-200 hover:border-indigo-500 hover:text-indigo-700 rounded-2xl font-black text-slate-700 shadow-md transition-all flex items-center gap-3 active:scale-95 shrink-0"
-              >
-                <span>📊 開啟後端 Excel</span>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </a>
+          <div className="glass-card rounded-[2.5rem] p-8 border-b-4 border-slate-300 flex flex-col md:flex-row items-center gap-6">
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-3xl shrink-0 shadow-inner">⚙️</div>
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-2xl font-black text-slate-950 mb-2">雲端資料庫管理</h3>
+              <p className="text-slate-500 font-bold leading-relaxed">可在 Google Sheets 修改動作與分類。</p>
             </div>
+            <a href={GOOGLE_SHEET_URL} target="_blank" rel="noopener noreferrer" className="px-8 py-5 bg-white border-2 border-slate-200 hover:text-indigo-700 rounded-2xl font-black text-slate-700 shadow-md">📊 開啟後端 Sheet</a>
           </div>
         </div>
 
-        <div className={`${activeTab === 'history' ? 'block' : 'hidden md:block'} w-full space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+        <div className={`${activeTab === 'history' ? 'block' : 'hidden md:block'} w-full space-y-10`}>
           <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6 px-1 md:px-4">
             <h2 className="text-4xl font-black text-slate-950">歷史復健日誌</h2>
-            <div className="flex gap-4 w-full md:w-auto">
-              <button type="button" onClick={handleDeleteAll} className="flex-1 md:flex-none px-6 py-5 rounded-2xl font-black bg-white text-rose-600 border border-rose-100 text-lg shadow-sm">🗑️ 清空</button>
-              <button type="button" onClick={() => handleCopyToClipboard()} className={`flex-[2] md:flex-none px-8 py-5 rounded-2xl font-black shadow-lg text-lg md:text-xl transition-all ${logs.length === 0 ? 'bg-slate-100 text-slate-400' : copied ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-white'}`}>{copied ? '✅ 已複製' : '📋 複製全部日誌'}</button>
+            <div className="flex flex-wrap gap-4 w-full md:w-auto">
+              <button type="button" onClick={handleDeleteAll} className="flex-1 md:flex-none px-6 py-5 rounded-2xl font-black bg-white text-rose-600 border border-rose-100 text-lg shadow-sm">🗑️ 全部清空</button>
+              <button type="button" onClick={handleSyncAllToSheet} disabled={isSyncingAll} className={`flex-1 md:flex-none px-8 py-5 rounded-2xl font-black shadow-lg text-lg transition-all ${isSyncingAll ? 'bg-slate-300 text-slate-500 animate-pulse' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                {isSyncingAll ? '⏳ 同步中...' : '🔄 同步雲端資料'}
+              </button>
+              <button type="button" onClick={handleCopyToClipboard} className={`flex-[2] md:flex-none px-8 py-5 rounded-2xl font-black shadow-lg text-lg md:text-xl transition-all ${copied ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-white'}`}>{copied ? '✅ 已複製' : '📋 複製全部日誌'}</button>
             </div>
           </div>
 
           <div className="space-y-10">
             {groupedLogs.map(group => (
               <div key={group.date} className="glass-card rounded-[3rem] overflow-hidden border-2 border-white shadow-2xl bg-white/80">
-                <div className="bg-indigo-50/50 p-6 md:p-8 border-b-2 border-indigo-100 relative overflow-hidden">
+                <div className="bg-indigo-50/50 p-6 md:p-8 border-b-2 border-indigo-100 relative">
                   <div className="absolute left-0 top-0 bottom-0 w-4 bg-indigo-600"></div>
-                  <div className="flex flex-col gap-6">
-                    <div className="flex items-center justify-between w-full gap-4">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center text-2xl shadow-lg shrink-0">📅</div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-2xl md:text-4xl font-black text-indigo-950 whitespace-nowrap overflow-hidden text-ellipsis">{group.date}</span>
-                          <span className="text-sm font-bold text-indigo-700/60 uppercase tracking-widest">{group.logs.length} 個動作</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2 shrink-0">
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleCopyToClipboard(group.date); }}
-                          className="w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-white hover:bg-indigo-100 text-indigo-700 rounded-xl border border-indigo-200 shadow-sm transition-all active:scale-90"
-                          title="複製此日紀錄"
-                        >
-                          📋
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleDeleteDay(group.date); }}
-                          className="w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-white hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200 shadow-sm transition-all active:scale-90"
-                          title="刪除此日紀錄"
-                        >
-                          🗑️
-                        </button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center text-2xl shadow-lg">📅</div>
+                      <div className="flex flex-col">
+                        <span className="text-2xl md:text-4xl font-black text-indigo-950">{formatDateString(group.date)}</span>
+                        <span className="text-sm font-bold text-indigo-700/60 uppercase tracking-widest">{group.logs.length} 個動作</span>
                       </div>
                     </div>
-                    
-                    <div className="w-full p-4 bg-white/60 border border-indigo-100 rounded-2xl shadow-inner group/status">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">🧠 今日身體狀況 (點擊即可修改)</span>
-                      </div>
-                      <textarea
-                        className="w-full bg-transparent border-none focus:ring-0 outline-none text-lg font-bold text-slate-700 leading-relaxed italic text-center md:text-left resize-none h-auto min-h-[3rem]"
-                        value={group.status}
-                        placeholder="尚未填寫今日狀況，點此新增..."
-                        onChange={(e) => setDailyStatuses(prev => ({ ...prev, [group.date]: e.target.value }))}
-                        rows={group.status.split('\n').length || 1}
-                      />
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleWriteToSheet(group.date)} 
+                        disabled={isWritingId === group.date} 
+                        title="寫入今日資料到雲端"
+                        className={`w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-white text-emerald-600 rounded-xl border border-emerald-200 shadow-sm transition-all active:scale-90 ${isWritingId === group.date ? 'animate-pulse' : ''}`}>
+                        {isWritingId === group.date ? '⏳' : '📤'}
+                      </button>
+                      <button 
+                        onClick={() => handleCopyDay(group.date)} 
+                        title="複製今日紀錄"
+                        className={`w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-white rounded-xl border shadow-sm transition-all active:scale-90 ${copiedDayId === group.date ? 'text-emerald-600 border-emerald-300' : 'text-indigo-600 border-indigo-200'}`}>
+                        {copiedDayId === group.date ? '✅' : '📋'}
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteDay(group.date)} 
+                        title="清空當日紀錄"
+                        className="w-11 h-11 md:w-14 md:h-14 flex items-center justify-center bg-white text-rose-500 rounded-xl border border-rose-200 shadow-sm transition-all active:scale-90 hover:bg-rose-50">
+                        🗑️
+                      </button>
                     </div>
                   </div>
+                  <textarea 
+                    className="mt-6 w-full p-4 bg-white/60 border border-indigo-100 rounded-2xl shadow-inner text-lg font-bold text-slate-700 italic resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-400 block"
+                    placeholder="無今日紀錄..."
+                    value={dailyStatuses[group.date] || ''}
+                    rows={2}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDailyStatuses(prev => ({ ...prev, [group.date]: val }));
+                    }}
+                  />
                 </div>
-
-                <div className="block md:hidden">
-                  <div className="divide-y-2 divide-indigo-50/50">
-                    {group.logs.map(log => (
-                      <div key={log.id} className="p-6 hover:bg-white transition-colors">
-                        <div className="flex justify-between items-center gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-2xl font-black text-slate-950 truncate leading-tight mb-3">{log.exerciseName}</h3>
-                            <div className="flex flex-wrap gap-2 items-center">
-                              <span className="text-sm text-indigo-700 font-bold bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-200/50">{log.category}</span>
-                              {log.side !== 'N/A' && (
-                                <span className={`px-3 py-1 rounded-full text-sm font-black text-white ${log.side === '左' ? 'bg-orange-600' : log.side === '右' ? 'bg-indigo-700' : 'bg-emerald-600'}`}>
-                                  {log.side}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-3xl font-black text-indigo-950 bg-indigo-50 px-4 py-2 rounded-2xl inline-block border-2 border-indigo-100 shadow-sm whitespace-nowrap">
-                              {log.value}
-                            </span>
-                            <span className="block text-sm font-black text-slate-500 mt-2 uppercase tracking-widest">
-                              {log.sets > 0 ? (log.sets > 1 ? `× ${log.sets} 組` : '1 組') : log.unit}
-                            </span>
-                          </div>
+                <div className="divide-y divide-slate-100">
+                  {group.logs.map(l => (
+                    <div key={l.id} className="p-6 md:p-8 hover:bg-slate-50/30 transition-all flex items-center gap-4">
+                      <div className="flex-1 space-y-2">
+                        <h3 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">{l.exerciseName}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-base font-bold text-indigo-600 bg-indigo-50/80 px-4 py-1.5 rounded-xl border border-indigo-100">{l.category}</span>
+                          {l.side !== 'N/A' && l.side !== '雙側' && (
+                            <span className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-black text-white shadow-sm ${l.side === '左' ? 'bg-indigo-600' : 'bg-rose-500'}`}>{l.side}</span>
+                          )}
+                          {l.side === '雙側' && (
+                            <span className="bg-emerald-600 px-3 py-1 rounded-full text-xs font-black text-white shadow-sm">雙側</span>
+                          )}
                         </div>
-
-                        {log.notes && (
-                          <p className="mt-4 text-lg text-slate-600 font-medium italic bg-slate-50 p-4 rounded-2xl border border-slate-100 leading-relaxed">
-                            “{log.notes}”
-                          </p>
+                        {l.notes && (
+                          <div className="mt-3 px-6 py-4 bg-slate-100/50 rounded-2xl border border-slate-100 inline-block min-w-[12rem]">
+                            <p className="text-lg font-bold text-slate-400 italic">“{l.notes}”</p>
+                          </div>
                         )}
+                      </div>
 
-                        <div className="flex justify-end gap-8 mt-4 pt-2">
-                          <button onClick={() => startEditing(log)} className="text-lg font-black text-indigo-700 py-1 flex items-center gap-1 active:opacity-50">
-                            ✏️ <span className="underline underline-offset-4">修改</span>
-                          </button>
-                          <button onClick={() => { if(window.confirm('確定刪除此項動作？')) setLogs(prev => prev.filter(l => l.id !== log.id)); }} className="text-lg font-black text-rose-600 py-1 flex items-center gap-1 active:opacity-50">
-                            🗑️ <span className="underline underline-offset-4">刪除</span>
-                          </button>
+                      <div className="flex flex-col items-center gap-1 shrink-0 px-4">
+                        <div className="bg-white px-8 py-5 rounded-[2rem] border-2 border-slate-50 shadow-xl shadow-slate-200/50 flex items-center justify-center min-w-[8rem]">
+                          <span className="text-3xl md:text-4xl font-black text-indigo-950 tracking-tight">{l.value}</span>
                         </div>
+                        {l.sets > 0 && (
+                          <span className="text-lg font-bold text-slate-400 mt-1 flex items-center gap-1">
+                             {l.unit === '分鐘' ? (
+                               <span>{l.sets}分鐘</span>
+                             ) : (
+                               <>
+                                 <span className="text-sm">×</span> {l.sets} <span className="text-sm">組</span>
+                               </>
+                             )}
+                          </span>
+                        )}
                       </div>
-                    ))}
-                    {group.logs.length === 0 && (
-                      <div className="p-10 text-center text-slate-400 font-bold italic">
-                        當天僅記錄身體狀況，無具體動作項目
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                <div className="hidden md:block overflow-x-auto">
-                  {group.logs.length > 0 ? (
-                    <table className="w-full text-left min-w-[800px]">
-                      <tbody className="divide-y-2 divide-indigo-50">
-                        {group.logs.map(log => (
-                          <tr key={log.id} className="hover:bg-indigo-50/40 transition-all">
-                            <td className="px-10 py-10 w-1/2">
-                              <div className="text-3xl font-black text-slate-950">{log.exerciseName}</div>
-                              <div className="flex gap-3 mt-3 items-center">
-                                <span className="text-lg text-indigo-600 font-bold bg-indigo-50 px-3 py-1 rounded-lg">{log.category}</span>
-                                {log.side !== 'N/A' && <span className={`px-3 py-1 rounded-full text-lg font-black text-white ${log.side === '左' ? 'bg-orange-600' : log.side === '右' ? 'bg-indigo-700' : 'bg-emerald-600'}`}>{log.side}</span>}
-                              </div>
-                              {log.notes && <div className="mt-4 text-xl text-slate-500 font-medium italic bg-slate-100/50 p-3 rounded-2xl">“{log.notes}”</div>}
-                            </td>
-                            <td className="px-10 py-10 text-center">
-                              <span className="text-4xl font-black text-indigo-900 bg-white px-7 py-4 rounded-[2rem] border-2 border-indigo-50 inline-block shadow-lg whitespace-nowrap">{log.value}</span>
-                              <span className="block text-lg font-black text-slate-400 mt-3 uppercase tracking-widest">
-                                {log.sets > 0 ? (log.sets > 1 ? `× ${log.sets} 組` : '1 組') : log.unit}
-                              </span>
-                            </td>
-                            <td className="px-10 py-10 text-right">
-                              <div className="flex justify-end gap-4">
-                                <button onClick={() => startEditing(log)} className="p-5 bg-white border-2 border-slate-100 rounded-2xl text-indigo-600 shadow-md transition-transform active:scale-90 hover:bg-indigo-50"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                                <button onClick={() => { if(window.confirm('確定刪除？')) setLogs(prev => prev.filter(l => l.id !== log.id)); }} className="p-5 bg-white border-2 border-slate-100 rounded-2xl text-rose-500 shadow-md transition-transform active:scale-90 hover:bg-rose-50"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="py-20 text-center text-slate-400 font-bold italic text-2xl">
-                      當天僅記錄身體狀況，無具體動作項目
+                      <div className="flex flex-col gap-3 shrink-0">
+                        <button onClick={() => startEditing(l)} className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-white text-indigo-600 rounded-2xl border border-indigo-50 shadow-lg shadow-indigo-100/50 hover:bg-indigo-50 active:scale-90 transition-all">
+                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                        <button onClick={() => handleDeleteLog(l.id, l.exerciseName)} className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-white text-rose-500 rounded-2xl border border-rose-50 shadow-lg shadow-rose-100/50 hover:bg-rose-50 active:scale-90 transition-all">
+                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             ))}
