@@ -626,7 +626,7 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <h3 className="text-xl md:text-3xl font-black text-slate-950 leading-tight truncate">{l.exerciseName}</h3>
                             {l.side !== 'N/A' && (
-                              <span className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg bg-[#f0641e] shrink-0">{l.side === '雙側' ? '雙' : l.side}</span>
+                              <span className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg shrink-0 ${l.side === '左' ? 'bg-cyan-600' : l.side === '右' ? 'bg-[#f0641e]' : 'bg-indigo-600'}`}>{l.side === '雙側' ? '雙' : l.side}</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
