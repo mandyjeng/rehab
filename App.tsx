@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { EXERCISES_API_URL, CATEGORIES } from './constants';
+import { USERS, UserKey } from './constants';
 import { ExerciseLog, FormData, BodyPart, ExerciseDefinition } from './types';
 
 interface ModalConfig {
@@ -12,7 +12,12 @@ interface ModalConfig {
 }
 
 const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<UserKey>(() => {
+    return (localStorage.getItem('rehab_current_user') as UserKey) || 'MANDY';
+  });
+
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([]);
+  const [dynamicCategories, setDynamicCategories] = useState<string[]>([]); // 動態存放分類
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [dailyStatuses, setDailyStatuses] = useState<Record<string, string>>({}); 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,53 +64,64 @@ const App: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1TBuSUnuO3HTtG-9ZHDmDrlHGSNlEip3WUntbtWQcre8/edit?gid=0#gid=0';
-
-  const getInitialHistoricalData = () => {
-    const historicalLogs: ExerciseLog[] = [
-      { id: "h1-1", date: "2026-01-20", exerciseName: "側跪姿動態髖伸蚌殼式", category: BodyPart.STARS_REHAB, side: "左", sets: 3, value: "0kg 5下", unit: "組", notes: "" },
-      { id: "h1-11", date: "2026-01-20", exerciseName: "坐式腳踏車", category: BodyPart.OTHER_GYM, side: "N/A", sets: 1, value: "阻力0", unit: "分鐘", notes: "" },
-      { id: "h8-1", date: "2026-01-27", exerciseName: "脛骨內轉", category: BodyPart.STARS_REHAB, side: "N/A", sets: 2, value: "10下", unit: "組", notes: "" },
-    ];
-    const historicalStatuses: Record<string, string> = {
-      "2026-01-27": "左腳髕骨下方外側不舒服，6分",
-    };
-    return { historicalLogs, historicalStatuses };
-  };
-
   useEffect(() => {
-    const MAIN_LOGS_KEY = 'rehab_logs_stable';
-    const MAIN_STATUS_KEY = 'rehab_statuses_stable';
+    const config = USERS[currentUser];
+    localStorage.setItem('rehab_current_user', currentUser);
     let currentLogs: ExerciseLog[] = [];
     let currentStatuses: Record<string, string> = {};
-    const savedLogs = localStorage.getItem(MAIN_LOGS_KEY);
-    const savedStatus = localStorage.getItem(MAIN_STATUS_KEY);
+    const savedLogs = localStorage.getItem(config.storageKey);
+    const savedStatus = localStorage.getItem(config.statusKey);
     if (savedLogs) currentLogs = JSON.parse(savedLogs);
     if (savedStatus) currentStatuses = JSON.parse(savedStatus);
-    if (currentLogs.length === 0 && Object.keys(currentStatuses).length === 0) {
-      const { historicalLogs, historicalStatuses } = getInitialHistoricalData();
-      currentLogs = historicalLogs;
-      currentStatuses = historicalStatuses;
-    }
     setLogs(currentLogs);
     setDailyStatuses(currentStatuses);
-  }, []);
+    setEditingId(null);
+    setFormData(prev => ({ ...prev, exerciseId: '', notes: '' }));
+  }, [currentUser]);
 
-  useEffect(() => { localStorage.setItem('rehab_logs_stable', JSON.stringify(logs)); }, [logs]);
-  useEffect(() => { localStorage.setItem('rehab_statuses_stable', JSON.stringify(dailyStatuses)); }, [dailyStatuses]);
+  useEffect(() => {
+    const config = USERS[currentUser];
+    localStorage.setItem(config.storageKey, JSON.stringify(logs));
+  }, [logs, currentUser]);
+
+  useEffect(() => {
+    const config = USERS[currentUser];
+    localStorage.setItem(config.statusKey, JSON.stringify(dailyStatuses));
+  }, [dailyStatuses, currentUser]);
 
   useEffect(() => {
     const fetchExercises = async () => {
       try {
         setIsLoadingExercises(true);
-        const response = await fetch(EXERCISES_API_URL);
+        const response = await fetch(USERS[currentUser].api);
         const data = await response.json();
-        setExercises(data);
-      } catch (error) { console.error("無法載入動作:", error); }
+        
+        // 取得動作清單
+        const exercisesList: ExerciseDefinition[] = Array.isArray(data) ? data : (data.exercises || []);
+        setExercises(exercisesList);
+
+        // 優先讀取 API 傳回的 categories (若您在 Sheet 建立了「動作分類」頁籤)
+        if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+          setDynamicCategories(data.categories);
+        } else {
+          // 備援邏輯：從動作清單中動態提取所有不重複的分類
+          const extractedCategories = exercisesList.reduce((acc: string[], ex) => {
+            if (ex.category && !acc.includes(ex.category)) {
+              acc.push(ex.category);
+            }
+            return acc;
+          }, []);
+          setDynamicCategories(extractedCategories);
+        }
+
+      } catch (error) { 
+        console.error("無法載入動作:", error); 
+        showAlert("連線失敗", "無法從該使用者的雲端載入資料。");
+      }
       finally { setIsLoadingExercises(false); }
     };
     fetchExercises();
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -122,19 +138,32 @@ const App: React.FC = () => {
   };
 
   const currentExercise = useMemo(() => exercises.find(e => e.id === formData.exerciseId) || null, [formData.exerciseId, exercises]);
+  
   const filteredExercises = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     return term ? exercises.filter(ex => ex.name.toLowerCase().includes(term) || ex.category.toLowerCase().includes(term)) : exercises;
   }, [searchTerm, exercises]);
-  const filteredCategories = useMemo(() => CATEGORIES.filter(cat => filteredExercises.some(ex => ex.category === cat)), [filteredExercises]);
+
+  // 分類清單現在完全由雲端資料決定
+  const filteredCategories = useMemo(() => {
+    return dynamicCategories.filter(cat => filteredExercises.some(ex => ex.category === cat));
+  }, [filteredExercises, dynamicCategories]);
 
   useEffect(() => {
     if (!editingId && currentExercise) {
       let dVal = currentExercise.defaultQuantity || '10';
+      const isWeightDefined = currentExercise.mode === 'STRENGTH' && 
+                              currentExercise.defaultUnit && 
+                              !isNaN(Number(currentExercise.defaultUnit));
+      
+      const defaultWeight = isWeightDefined 
+        ? currentExercise.defaultUnit 
+        : (currentExercise.category.includes('地雷管') ? '20' : '0');
+
       setFormData(prev => ({
         ...prev,
         side: currentExercise.isUnilateral ? '左' : 'N/A' as any,
-        weight: currentExercise.category === BodyPart.LANDMINE ? '20' : '0',
+        weight: defaultWeight as string,
         reps: (currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'STRENGTH') ? dVal : '',
         time: (currentExercise.mode === 'TIME_ONLY' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') ? dVal : '',
         sets: 1
@@ -152,7 +181,11 @@ const App: React.FC = () => {
     let isDuration = currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL';
     
     switch(currentExercise.mode) {
-      case 'STRENGTH': fVal = `${formData.weight}kg ${formData.reps}${currentExercise.defaultUnit || '下'}`; break;
+      case 'STRENGTH': 
+        const isNumericUnit = currentExercise.defaultUnit && !isNaN(Number(currentExercise.defaultUnit));
+        const repUnit = isNumericUnit ? '下' : (currentExercise.defaultUnit || '下');
+        fVal = `${formData.weight}kg ${formData.reps}${repUnit}`; 
+        break;
       case 'REPS_ONLY': fVal = `${formData.reps}${currentExercise.defaultUnit || '下'}`; break;
       case 'TIME_ONLY': fVal = `${formData.time}秒`; break;
       case 'CYCLING': fVal = `阻力${formData.resistance}`; break;
@@ -236,22 +269,18 @@ const App: React.FC = () => {
 
   const groupedLogs = useMemo(() => {
     const filterTerm = historySearchTerm.trim().toLowerCase();
-    
     const filteredLogs = logs.filter(l => {
       const matchName = filterTerm ? l.exerciseName.toLowerCase().includes(filterTerm) : true;
       const matchStart = startDate ? l.date >= startDate : true;
       const matchEnd = endDate ? l.date <= endDate : true;
       return matchName && matchStart && matchEnd;
     });
-
     const groups: Record<string, ExerciseLog[]> = {};
     filteredLogs.forEach(l => { if (!groups[l.date]) groups[l.date] = []; groups[l.date].push(l); });
-    
     const hasFilter = filterTerm || startDate || endDate;
     const allDates = hasFilter
       ? new Set(Object.keys(groups))
       : new Set([...Object.keys(groups), ...Object.keys(dailyStatuses).filter(d => dailyStatuses[d].trim() || (groups[d] && groups[d].length > 0))]);
-
     return Array.from(allDates).sort((a, b) => b.localeCompare(a)).map(date => ({ date, logs: groups[date] || [], status: dailyStatuses[date] || '' }));
   }, [logs, dailyStatuses, historySearchTerm, startDate, endDate]);
 
@@ -282,10 +311,10 @@ const App: React.FC = () => {
   };
 
   const handleSyncAllToSheet = async () => {
-    showConfirm('雲端同步', '確認從雲端「復健記錄」下載並還原所有紀錄？', async () => {
+    showConfirm('雲端同步', `確認從雲端「${USERS[currentUser].name} 的復健記錄」下載並還原所有紀錄？`, async () => {
       setIsSyncingAll(true);
       try {
-        const response = await fetch(`${EXERCISES_API_URL}?type=history`);
+        const response = await fetch(`${USERS[currentUser].api}?type=history`);
         const cloudData = await response.json();
         const newLogs: ExerciseLog[] = [];
         const newStatuses: Record<string, string> = {};
@@ -321,11 +350,11 @@ const App: React.FC = () => {
     const group = groupedLogs.find(g => g.date === targetDate);
     if (!group) return;
     const cleanDate = targetDate.trim().split(' ')[0];
-    showConfirm('上傳雲端', `將 ${cleanDate} 紀錄傳送到雲端？\n(若已有資料將自動覆蓋該日紀錄)`, async () => {
+    showConfirm('上傳雲端', `將 ${cleanDate} 紀錄傳送到 ${USERS[currentUser].name} 的雲端？`, async () => {
       setIsWritingId(targetDate);
       try {
         const content = formatGroupToString(group);
-        await fetch(EXERCISES_API_URL, { 
+        await fetch(USERS[currentUser].api, { 
           method: 'POST', 
           mode: 'no-cors', 
           headers: { 'Content-Type': 'application/json' },
@@ -340,6 +369,13 @@ const App: React.FC = () => {
   const handleCopyToClipboard = () => {
     const text = groupedLogs.map(g => `${g.date},"${formatGroupToString(g)}"`).join('\n');
     navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
+  const toggleUser = () => {
+    const nextUser: UserKey = currentUser === 'MANDY' ? 'AFU' : 'MANDY';
+    showConfirm('切換使用者', `確定要切換為「${USERS[nextUser].name}」嗎？\n資料將會同步切換。`, () => {
+      setCurrentUser(nextUser);
+    });
   };
 
   return (
@@ -362,7 +398,7 @@ const App: React.FC = () => {
           <img src="https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2069&auto=format&fit=crop" alt="Workout" className="w-24 h-24 md:w-48 md:h-48 object-cover rounded-[2rem]"/>
         </div>
         <h1 className="text-3xl sm:text-4xl md:text-6xl font-black text-slate-950 break-words w-full">RehabFlow <span className="text-indigo-700">Smart</span></h1>
-        <p className="mt-2 text-slate-900 font-black tracking-widest uppercase text-sm sm:text-base">mm復健日記</p>
+        <p className="mt-2 text-slate-900 font-black tracking-widest uppercase text-sm sm:text-base">mm復健日記 - <span className="text-indigo-600 underline">{USERS[currentUser].name}</span></p>
       </header>
 
       <div className="sticky top-2 z-50 bg-white/95 backdrop-blur-lg p-1.5 rounded-full shadow-2xl border border-indigo-100 mb-8 flex w-full max-sm mx-auto md:hidden ring-4 ring-indigo-50">
@@ -475,10 +511,13 @@ const App: React.FC = () => {
           <div className="glass-card rounded-[2rem] p-6 border-b-4 border-slate-300 flex flex-col sm:flex-row items-center gap-5">
             <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-inner">⚙️</div>
             <div className="flex-1 text-center sm:text-left">
-              <h3 className="text-xl font-black text-slate-950 mb-1">雲端資料庫管理</h3>
+              <h3 className="text-xl font-black text-slate-950 mb-1">雲端資料庫管理 ({USERS[currentUser].name})</h3>
               <p className="text-slate-500 font-bold text-sm">可在 Google Sheets 修改動作與分類。</p>
             </div>
-            <a href={GOOGLE_SHEET_URL} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-6 py-4 bg-white border-2 border-slate-200 hover:text-indigo-700 rounded-2xl font-black text-slate-700 shadow-sm text-center">📊 開啟後端 Sheet</a>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <button onClick={toggleUser} className="px-6 py-4 bg-indigo-50 border-2 border-indigo-100 text-indigo-700 rounded-2xl font-black shadow-sm text-center hover:bg-indigo-100 transition-colors">👤 切換使用者</button>
+              <a href={USERS[currentUser].sheet} target="_blank" rel="noopener noreferrer" className="px-6 py-4 bg-white border-2 border-slate-200 hover:text-indigo-700 rounded-2xl font-black text-slate-700 shadow-sm text-center transition-colors">📊 開啟後端 Sheet</a>
+            </div>
           </div>
         </div>
 
@@ -507,7 +546,6 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* 修正後的過濾器排版：移除重疊，改用上方小標籤 */}
           <div className="glass-card rounded-3xl p-5 md:p-6 space-y-4 shadow-inner border border-slate-100">
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex-1 space-y-2">
