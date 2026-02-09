@@ -17,7 +17,7 @@ const App: React.FC = () => {
   });
 
   const [exercises, setExercises] = useState<ExerciseDefinition[]>([]);
-  const [dynamicCategories, setDynamicCategories] = useState<string[]>([]); // 動態存放分類
+  const [dynamicCategories, setDynamicCategories] = useState<string[]>([]); 
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [dailyStatuses, setDailyStatuses] = useState<Record<string, string>>({}); 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -96,15 +96,12 @@ const App: React.FC = () => {
         const response = await fetch(USERS[currentUser].api);
         const data = await response.json();
         
-        // 取得動作清單
         const exercisesList: ExerciseDefinition[] = Array.isArray(data) ? data : (data.exercises || []);
         setExercises(exercisesList);
 
-        // 優先讀取 API 傳回的 categories (若您在 Sheet 建立了「動作分類」頁籤)
         if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
           setDynamicCategories(data.categories);
         } else {
-          // 備援邏輯：從動作清單中動態提取所有不重複的分類
           const extractedCategories = exercisesList.reduce((acc: string[], ex) => {
             if (ex.category && !acc.includes(ex.category)) {
               acc.push(ex.category);
@@ -139,12 +136,29 @@ const App: React.FC = () => {
 
   const currentExercise = useMemo(() => exercises.find(e => e.id === formData.exerciseId) || null, [formData.exerciseId, exercises]);
   
+  // 檢查是否為羽球類且有特殊單位的動作 (不需要顯示重量、不需要顯示組數)
+  const isBadmintonSpecial = useMemo(() => {
+    if (!currentExercise) return false;
+    return currentExercise.category.includes('羽球') && 
+           currentExercise.defaultUnit && 
+           isNaN(Number(currentExercise.defaultUnit));
+  }, [currentExercise]);
+
+  // 動態數量標籤 (場數、趟數、次數)
+  const quantityLabel = useMemo(() => {
+    if (!currentExercise) return '次數';
+    const unit = currentExercise.defaultUnit;
+    if (unit && isNaN(Number(unit)) && unit.trim() !== '') {
+      return `${unit.trim()}數`;
+    }
+    return (currentExercise.mode.includes('TIME') || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') ? '時間' : '次數';
+  }, [currentExercise]);
+
   const filteredExercises = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     return term ? exercises.filter(ex => ex.name.toLowerCase().includes(term) || ex.category.toLowerCase().includes(term)) : exercises;
   }, [searchTerm, exercises]);
 
-  // 分類清單現在完全由雲端資料決定
   const filteredCategories = useMemo(() => {
     return dynamicCategories.filter(cat => filteredExercises.some(ex => ex.category === cat));
   }, [filteredExercises, dynamicCategories]);
@@ -152,6 +166,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!editingId && currentExercise) {
       let dVal = currentExercise.defaultQuantity || '10';
+      
       const isWeightDefined = currentExercise.mode === 'STRENGTH' && 
                               currentExercise.defaultUnit && 
                               !isNaN(Number(currentExercise.defaultUnit));
@@ -182,9 +197,13 @@ const App: React.FC = () => {
     
     switch(currentExercise.mode) {
       case 'STRENGTH': 
-        const isNumericUnit = currentExercise.defaultUnit && !isNaN(Number(currentExercise.defaultUnit));
-        const repUnit = isNumericUnit ? '下' : (currentExercise.defaultUnit || '下');
-        fVal = `${formData.weight}kg ${formData.reps}${repUnit}`; 
+        if (isBadmintonSpecial) {
+           fVal = `${formData.reps}${currentExercise.defaultUnit || '場'}`;
+        } else {
+           const isNumericUnit = currentExercise.defaultUnit && !isNaN(Number(currentExercise.defaultUnit));
+           const repUnit = isNumericUnit ? '下' : (currentExercise.defaultUnit || '下');
+           fVal = `${formData.weight}kg ${formData.reps}${repUnit}`; 
+        }
         break;
       case 'REPS_ONLY': fVal = `${formData.reps}${currentExercise.defaultUnit || '下'}`; break;
       case 'TIME_ONLY': fVal = `${formData.time}秒`; break;
@@ -199,7 +218,7 @@ const App: React.FC = () => {
       side: currentExercise.isUnilateral ? (formData.side === '記錄雙側' ? '雙側' : formData.side as any) : 'N/A',
       sets: isDuration ? (parseInt(formData.time) || 0) : formData.sets, 
       value: fVal, 
-      unit: isDuration ? "分鐘" : "組", 
+      unit: (isDuration) ? "分鐘" : (isBadmintonSpecial ? "" : "組"), // 羽球特殊單位不顯示"組"字樣
       notes: formData.notes
     };
 
@@ -250,6 +269,10 @@ const App: React.FC = () => {
     } else if (ex.mode === 'STRENGTH') {
       const m = log.value.match(/(\d+)kg\s+(\d+)/);
       if (m) { restoredValues.weight = m[1]; restoredValues.reps = m[2]; }
+      else {
+        const bmatch = log.value.match(/(\d+)/);
+        if (bmatch) restoredValues.reps = bmatch[1];
+      }
     } else if (ex.mode === 'REPS_ONLY') {
       const m = log.value.match(/(\d+)/);
       if (m) restoredValues.reps = m[1];
@@ -291,7 +314,7 @@ const App: React.FC = () => {
       let entry = `${l.exerciseName}${l.side !== 'N/A' ? `【${l.side}】` : ''}: ${l.value.trim()}`;
       if (l.sets > 0) {
         if (l.unit === '分鐘') entry += ` ${l.sets}分鐘`;
-        else entry += ` x${l.sets}組`;
+        else if (l.unit === '組') entry += ` x${l.sets}組`;
       }
       if (l.notes) entry += ` (${l.notes.trim()})`;
       parts.push(entry);
@@ -330,7 +353,7 @@ const App: React.FC = () => {
             const match = s.match(/^(.*?)(?:【(左|右|雙側)】)?:\s*(.*?)(?:\s+x(\d+)組|\s+(\d+)分鐘)?(?:\s+\((.*?)\))?\s*"?$/);
             if (match) {
               const setsVal = match[4] ? parseInt(match[4]) : (match[5] ? parseInt(match[5]) : 0);
-              const unitVal = match[5] ? "分鐘" : "組";
+              const unitVal = match[5] ? "分鐘" : (match[4] ? "組" : "");
               newLogs.push({
                 id: crypto.randomUUID(), date, exerciseName: match[1].trim(), side: (match[2] || 'N/A') as any,
                 value: match[3].trim(), sets: setsVal, notes: match[6] || "",
@@ -464,8 +487,8 @@ const App: React.FC = () => {
                   </section>
                 )}
                 {currentExercise && (
-                  <div className={`grid ${currentExercise.mode === 'TREADMILL' ? 'grid-cols-3' : 'grid-cols-2'} gap-4 md:gap-6`}>
-                    {(currentExercise.mode === 'STRENGTH' || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') && (
+                  <div className={`grid ${currentExercise.mode === 'TREADMILL' ? 'grid-cols-3' : (currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'TIME_ONLY' || isBadmintonSpecial ? 'grid-cols-1' : 'grid-cols-2')} gap-4 md:gap-6`}>
+                    {(currentExercise.mode === 'STRENGTH' && !isBadmintonSpecial || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL') && (
                       <section>
                         <label className="text-sm md:text-lg font-black text-slate-950 mb-2 md:mb-3 block text-center truncate">{currentExercise.mode === 'CYCLING' ? '阻力' : currentExercise.mode === 'TREADMILL' ? '坡度' : '負重(kg)'}</label>
                         <input type="text" inputMode="decimal" className="w-full px-2 py-4 md:py-6 rounded-2xl bg-white border-2 border-indigo-200 font-black text-slate-950 text-2xl md:text-3xl text-center" value={currentExercise.mode === 'CYCLING' ? formData.resistance : currentExercise.mode === 'TREADMILL' ? formData.slope : formData.weight} onChange={e => setFormData({ ...formData, [currentExercise.mode === 'CYCLING' ? 'resistance' : (currentExercise.mode === 'TREADMILL' ? 'slope' : 'weight')]: e.target.value })} />
@@ -478,14 +501,15 @@ const App: React.FC = () => {
                       </section>
                     )}
                     {currentExercise.mode !== 'RELAX' && (
-                      <section className={currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'TIME_ONLY' ? 'col-span-2' : ''}>
-                        <label className="text-sm md:text-lg font-black text-slate-950 mb-2 md:mb-3 block text-center">{currentExercise.mode.includes('TIME') || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? '時間' : '次數'}</label>
+                      <section className={currentExercise.mode === 'REPS_ONLY' || currentExercise.mode === 'TIME_ONLY' || isBadmintonSpecial ? 'w-full' : ''}>
+                        <label className="text-sm md:text-lg font-black text-slate-950 mb-2 md:mb-3 block text-center">{quantityLabel}</label>
                         <input type="text" inputMode="numeric" className="w-full px-2 py-4 md:py-6 rounded-2xl bg-white border-2 border-indigo-200 font-black text-slate-950 text-2xl md:text-3xl text-center" value={currentExercise.mode.includes('TIME') || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? formData.time : formData.reps} onChange={e => setFormData({ ...formData, [currentExercise.mode.includes('TIME') || currentExercise.mode === 'CYCLING' || currentExercise.mode === 'TREADMILL' ? 'time' : 'reps']: e.target.value })} />
                       </section>
                     )}
                   </div>
                 )}
-                {currentExercise && !['RELAX', 'CYCLING', 'TREADMILL'].includes(currentExercise.mode) && (
+                {/* 總組數邏輯：若為羽球特殊動作(isBadmintonSpecial)則完全隱藏此區塊 */}
+                {currentExercise && !['RELAX', 'CYCLING', 'TREADMILL'].includes(currentExercise.mode) && !isBadmintonSpecial && (
                   <section>
                     <label className="text-base md:text-lg font-black text-slate-950 mb-3 md:mb-4 block text-center">總組數</label>
                     <div className="flex items-center justify-center space-x-6 md:space-x-12">
@@ -507,7 +531,7 @@ const App: React.FC = () => {
               </button>
             </div>
           </div>
-
+          {/* 底部按鈕區 */}
           <div className="glass-card rounded-[2rem] p-6 border-b-4 border-slate-300 flex flex-col sm:flex-row items-center gap-5">
             <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-inner">⚙️</div>
             <div className="flex-1 text-center sm:text-left">
@@ -521,6 +545,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
+        {/* 歷史紀錄 Tab */}
         <div className={`${activeTab === 'history' ? 'block' : 'hidden md:block'} w-full space-y-10`}>
           <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-5 px-1">
             <h2 className="text-3xl md:text-4xl font-black text-slate-950 self-start">歷史復健日誌</h2>
@@ -643,7 +668,7 @@ const App: React.FC = () => {
                             <div className="bg-white px-3 md:px-6 py-2 md:py-3 rounded-[1.2rem] md:rounded-[2rem] border-2 border-slate-50 shadow-lg shadow-slate-200/30 flex items-center justify-center min-w-[5rem] md:min-w-[7rem]">
                               <span className="text-sm md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">{l.value}</span>
                             </div>
-                            <span className="mt-1 text-[10px] md:text-sm font-bold text-slate-400 whitespace-nowrap italic">{l.unit === '分鐘' ? `${l.sets}分鐘` : `× ${l.sets} 組`}</span>
+                            <span className="mt-1 text-[10px] md:text-sm font-bold text-slate-400 whitespace-nowrap italic">{l.unit === '分鐘' ? `${l.sets}分鐘` : (l.unit === '' ? '' : `× ${l.sets} 組`)}</span>
                           </div>
                           <div className="flex flex-row gap-1.5 md:gap-2">
                             <button onClick={() => startEditing(l)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-indigo-600 rounded-xl md:rounded-2xl border border-indigo-50 shadow-md hover:bg-indigo-50 active:scale-90 transition-all">
