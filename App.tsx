@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Reorder } from 'motion/react';
+import { Reorder, useDragControls } from 'motion/react';
 import { USERS, UserKey } from './constants';
 import { ExerciseLog, FormData, BodyPart, ExerciseDefinition } from './types';
 
@@ -11,6 +11,88 @@ interface ModalConfig {
   onConfirm: (() => void) | null;
   type: 'confirm' | 'alert';
 }
+
+interface ReorderableLogItemProps {
+  log: ExerciseLog;
+  isSearchActive: boolean;
+  onEdit: (log: ExerciseLog) => void;
+  onDelete: (id: string, name: string) => void;
+}
+
+const ReorderableLogItem: React.FC<ReorderableLogItemProps> = ({ log, isSearchActive, onEdit, onDelete }) => {
+  const controls = useDragControls();
+  const isDraggable = !isSearchActive;
+
+  return (
+    <Reorder.Item
+      value={log}
+      dragControls={controls}
+      dragListener={false}
+      className="p-4 md:p-8 hover:bg-slate-50/40 transition-all flex flex-row items-center justify-between gap-4 bg-white touch-none"
+    >
+      <div className="flex-1 min-w-0 flex items-center gap-4">
+        {/* 拖曳手把 - 僅在非搜尋狀態下顯示 */}
+        {isDraggable && (
+          <div 
+            onPointerDown={(e) => controls.start(e)}
+            className="p-3 -ml-3 text-slate-300 hover:text-indigo-400 cursor-grab active:cursor-grabbing transition-colors shrink-0"
+            title="按住拖曳排序"
+          >
+            <svg className="w-6 h-6 md:w-9 md:h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 8h16M4 16h16" />
+            </svg>
+          </div>
+        )}
+        
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xl md:text-3xl font-black text-slate-950 leading-tight truncate">{log.exerciseName}</h3>
+            {log.side !== 'N/A' && (
+              <span className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg shrink-0 ${log.side === '左' ? 'bg-cyan-600' : log.side === '右' ? 'bg-[#f0641e]' : 'bg-indigo-600'}`}>{log.side === '雙側' ? '雙' : log.side}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] md:text-xs font-bold text-indigo-600 bg-indigo-50 px-2 md:px-3 py-1 rounded-lg border border-indigo-100 whitespace-nowrap">{log.category}</span>
+          </div>
+          {log.notes && (
+            <div className="hidden sm:block mt-1 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-xs md:text-sm font-bold text-slate-400 italic truncate">“{log.notes}”</p>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex flex-row items-center gap-3 md:gap-6 shrink-0">
+        <div className="flex flex-col items-center">
+          <div className="bg-white px-3 md:px-6 py-2 md:py-3 rounded-[1.2rem] md:rounded-[2rem] border-2 border-slate-50 shadow-lg shadow-slate-200/30 flex items-center justify-center min-w-[5rem] md:min-w-[7rem]">
+            <span className="text-sm md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">{log.value}</span>
+          </div>
+          <span className="mt-1 text-[10px] md:text-sm font-bold text-slate-400 whitespace-nowrap italic">
+            {log.unit === '分鐘' ? `${log.sets}分鐘` : (log.unit === '' ? '' : `× ${log.sets} 組`)}
+          </span>
+        </div>
+        <div className="flex flex-row gap-1.5 md:gap-2">
+          <button 
+            onClick={() => onEdit(log)}
+            className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-indigo-600 rounded-xl md:rounded-2xl border border-indigo-50 shadow-md hover:bg-indigo-50 active:scale-90 transition-all font-bold"
+          >
+            <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
+          <button 
+            onClick={() => onDelete(log.id, log.exerciseName)}
+            className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-rose-500 rounded-xl md:rounded-2xl border border-rose-50 shadow-md hover:bg-rose-50 active:scale-90 transition-all font-bold"
+          >
+            <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </Reorder.Item>
+  );
+};
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserKey>(() => {
@@ -668,54 +750,13 @@ const App: React.FC = () => {
                     className="divide-y divide-slate-100 bg-white list-none"
                   >
                     {group.logs.map(l => (
-                      <Reorder.Item 
+                      <ReorderableLogItem 
                         key={l.id} 
-                        value={l} 
-                        drag={!(historySearchTerm || startDate || endDate)} 
-                        className="p-4 md:p-8 hover:bg-slate-50/40 transition-all flex flex-row items-center justify-between gap-4 bg-white touch-none"
-                      >
-                        <div className="flex-1 min-w-0 flex items-center gap-4">
-                          {!(historySearchTerm || startDate || endDate) && (
-                            <div className="text-slate-300 hidden md:block shrink-0 cursor-grab active:cursor-grabbing">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16" />
-                              </svg>
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-xl md:text-3xl font-black text-slate-950 leading-tight truncate">{l.exerciseName}</h3>
-                              {l.side !== 'N/A' && (
-                                <span className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg shrink-0 ${l.side === '左' ? 'bg-cyan-600' : l.side === '右' ? 'bg-[#f0641e]' : 'bg-indigo-600'}`}>{l.side === '雙側' ? '雙' : l.side}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] md:text-xs font-bold text-indigo-600 bg-indigo-50 px-2 md:px-3 py-1 rounded-lg border border-indigo-100 whitespace-nowrap">{l.category}</span>
-                            </div>
-                            {l.notes && (
-                              <div className="hidden sm:block mt-1 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
-                                <p className="text-xs md:text-sm font-bold text-slate-400 italic truncate">“{l.notes}”</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-row items-center gap-3 md:gap-6 shrink-0">
-                          <div className="flex flex-col items-center">
-                            <div className="bg-white px-3 md:px-6 py-2 md:py-3 rounded-[1.2rem] md:rounded-[2rem] border-2 border-slate-50 shadow-lg shadow-slate-200/30 flex items-center justify-center min-w-[5rem] md:min-w-[7rem]">
-                              <span className="text-sm md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">{l.value}</span>
-                            </div>
-                            <span className="mt-1 text-[10px] md:text-sm font-bold text-slate-400 whitespace-nowrap italic">{l.unit === '分鐘' ? `${l.sets}分鐘` : (l.unit === '' ? '' : `× ${l.sets} 組`)}</span>
-                          </div>
-                          <div className="flex flex-row gap-1.5 md:gap-2">
-                            <button onClick={() => startEditing(l)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-indigo-600 rounded-xl md:rounded-2xl border border-indigo-50 shadow-md hover:bg-indigo-50 active:scale-90 transition-all">
-                              <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                            </button>
-                            <button onClick={() => handleDeleteLog(l.id, l.exerciseName)} className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center bg-white text-rose-500 rounded-xl md:rounded-2xl border border-rose-50 shadow-md hover:bg-rose-50 active:scale-90 transition-all">
-                              <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                            </button>
-                          </div>
-                        </div>
-                      </Reorder.Item>
+                        log={l} 
+                        isSearchActive={!!(historySearchTerm || startDate || endDate)}
+                        onEdit={startEditing}
+                        onDelete={handleDeleteLog}
+                      />
                     ))}
                   </Reorder.Group>
                 </div>
