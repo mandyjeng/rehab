@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Reorder } from 'motion/react';
 import { USERS, UserKey } from './constants';
 import { ExerciseLog, FormData, BodyPart, ExerciseDefinition } from './types';
 
@@ -401,6 +402,22 @@ const App: React.FC = () => {
     });
   };
 
+  const handleReorderLogs = (date: string, newGroupLogs: ExerciseLog[]) => {
+    // 保持搜尋狀態時不允許排序 (避免邏輯混亂)
+    if (historySearchTerm || startDate || endDate) return;
+
+    setLogs(prevLogs => {
+      // 找出不屬於該日期的所有紀錄
+      const otherLogs = prevLogs.filter(l => l.date !== date);
+      // 將其餘紀錄與新排序的該日期紀錄合併
+      // 這裡維持該日期紀錄原本在陣列中的大致相對位置（以第一個出現的索引為準）
+      const firstIndex = prevLogs.findIndex(l => l.date === date);
+      const result = [...otherLogs];
+      result.splice(firstIndex === -1 ? 0 : firstIndex, 0, ...newGroupLogs);
+      return result;
+    });
+  };
+
   return (
     <div className="pb-32 px-4 max-w-7xl mx-auto flex flex-col items-center font-['Noto_Sans_TC'] select-none">
       {modal.isOpen && (
@@ -644,24 +661,43 @@ const App: React.FC = () => {
                       onChange={(e) => setDailyStatuses(prev => ({ ...prev, [group.date]: e.target.value }))}
                     />
                   </div>
-                  <div className="divide-y divide-slate-100 bg-white">
+                  <Reorder.Group 
+                    axis="y" 
+                    values={group.logs} 
+                    onReorder={(newOrder) => handleReorderLogs(group.date, newOrder)}
+                    className="divide-y divide-slate-100 bg-white list-none"
+                  >
                     {group.logs.map(l => (
-                      <div key={l.id} className="p-4 md:p-8 hover:bg-slate-50/40 transition-all flex flex-row items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xl md:text-3xl font-black text-slate-950 leading-tight truncate">{l.exerciseName}</h3>
-                            {l.side !== 'N/A' && (
-                              <span className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg shrink-0 ${l.side === '左' ? 'bg-cyan-600' : l.side === '右' ? 'bg-[#f0641e]' : 'bg-indigo-600'}`}>{l.side === '雙側' ? '雙' : l.side}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] md:text-xs font-bold text-indigo-600 bg-indigo-50 px-2 md:px-3 py-1 rounded-lg border border-indigo-100 whitespace-nowrap">{l.category}</span>
-                          </div>
-                          {l.notes && (
-                            <div className="hidden sm:block mt-1 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
-                              <p className="text-xs md:text-sm font-bold text-slate-400 italic truncate">“{l.notes}”</p>
+                      <Reorder.Item 
+                        key={l.id} 
+                        value={l} 
+                        drag={!(historySearchTerm || startDate || endDate)} 
+                        className="p-4 md:p-8 hover:bg-slate-50/40 transition-all flex flex-row items-center justify-between gap-4 bg-white touch-none"
+                      >
+                        <div className="flex-1 min-w-0 flex items-center gap-4">
+                          {!(historySearchTerm || startDate || endDate) && (
+                            <div className="text-slate-300 hidden md:block shrink-0 cursor-grab active:cursor-grabbing">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16" />
+                              </svg>
                             </div>
                           )}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-xl md:text-3xl font-black text-slate-950 leading-tight truncate">{l.exerciseName}</h3>
+                              {l.side !== 'N/A' && (
+                                <span className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs md:text-sm font-black text-white shadow-lg shrink-0 ${l.side === '左' ? 'bg-cyan-600' : l.side === '右' ? 'bg-[#f0641e]' : 'bg-indigo-600'}`}>{l.side === '雙側' ? '雙' : l.side}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] md:text-xs font-bold text-indigo-600 bg-indigo-50 px-2 md:px-3 py-1 rounded-lg border border-indigo-100 whitespace-nowrap">{l.category}</span>
+                            </div>
+                            {l.notes && (
+                              <div className="hidden sm:block mt-1 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                                <p className="text-xs md:text-sm font-bold text-slate-400 italic truncate">“{l.notes}”</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="flex flex-row items-center gap-3 md:gap-6 shrink-0">
                           <div className="flex flex-col items-center">
@@ -679,9 +715,9 @@ const App: React.FC = () => {
                             </button>
                           </div>
                         </div>
-                      </div>
+                      </Reorder.Item>
                     ))}
-                  </div>
+                  </Reorder.Group>
                 </div>
               ))
             ) : (
